@@ -1,0 +1,44 @@
+from MeowRobot.modules.sql import BASE, SESSION
+from sqlalchemy import Column, String, Integer
+
+
+class MsgDelete(BASE):
+    __tablename__ = "msg_delete"
+
+    chat_id = Column(String(14), primary_key=True)
+    enabled = Column(Integer, default=0)
+    delay = Column(Integer, default=300)
+
+
+def set_msg(chat, mode):
+    try:
+        row = SESSION.get(MsgDelete, str(chat))
+
+        if not row:
+            row = MsgDelete(chat_id=str(chat), enabled=mode)
+        else:
+            row.enabled = mode
+
+        SESSION.add(row)
+        SESSION.commit()
+    except:
+        SESSION.rollback()
+
+
+def set_delay(chat, delay):
+    try:
+        row = SESSION.get(MsgDelete, str(chat))
+
+        if not row:
+            row = MsgDelete(chat_id=str(chat), delay=delay)
+        else:
+            row.delay = delay
+
+        SESSION.add(row)
+        SESSION.commit()
+    except:
+        SESSION.rollback()
+
+
+def get(chat):
+    return SESSION.get(MsgDelete, str(chat))
