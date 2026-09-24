@@ -57,9 +57,9 @@ from MeowRobot.modules.helper_funcs.misc import paginate_modules
 
 # Global variables to be set in main()
 BOT_ID = 7163382841
-BOT_NAME = "˹𝙈𝙚𝙤𝙬 ✘ 𝙍𝙤𝙗𝙤𝙩 ✘ 𝙈𝙪𝙨𝙞𝙘 🎧˼ ♪"
-BOT_USERNAME = "MeowSecurityBot"
-START_IMG = "https://files.catbox.moe/34xlvu.jpg"
+BOT_NAME = "˹AnupriyaTuneBot 🎧˼ ♪"
+BOT_USERNAME = "AnupriyaTuneBot"
+START_IMG = "https://files.catbox.moe/v00l7e.jpg"
 def get_readable_time(seconds: int) -> str:
     count = 0
     ping_time = ""
@@ -399,7 +399,7 @@ async def MeowRoBot_about_callback(update: Update, context: ContextTypes.DEFAULT
                         ),
                         InlineKeyboardButton(
                             text="ɢɪᴛʜᴜʙ",
-                            url="https://github.com/TheAloneTeam/AloneMusic",
+                            url="https://github.com/Oyekanhaa/KanhaMusic",
                         ),
                     ],
                     [
@@ -432,10 +432,10 @@ async def Source_about_callback(update: Update, context: ContextTypes.DEFAULT_TY
 ᴀɴᴅ ᴜsɪɴɢ [sǫʟᴀʟᴄʜᴇᴍʏ](https://www.sqlalchemy.org) ᴀɴᴅ [ᴍᴏɴɢᴏ](https://cloud.mongodb.com) ᴀs ᴅᴀᴛᴀʙᴀsᴇ.
 
 
-*ʜᴇʀᴇ ɪs ᴍʏ sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ :* [ɢɪᴛʜᴜʙ](https://github.com/TheAloneTeam/AloneMusic)
+*ʜᴇʀᴇ ɪs ᴍʏ sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ :* [ɢɪᴛʜᴜʙ](https://github.com/Oyekanhaa/KanhaMusic)
 
 
-{BOT_NAME} ɪs ʟɪᴄᴇɴsᴇᴅ ᴜɴᴅᴇʀ ᴛʜᴇ [ᴍɪᴛ ʟɪᴄᴇɴsᴇ](https://github.com/TheAloneTeam/AloneMusic/blob/master/LICENSE).
+{BOT_NAME} ɪs ʟɪᴄᴇɴsᴇᴅ ᴜɴᴅᴇʀ ᴛʜᴇ [ᴍɪᴛ ʟɪᴄᴇɴsᴇ](https://github.com/Oyekanhaa/KanhaMusic/blob/master/LICENSE).
 © 2022 - 2023 | [sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ](https://t.me/{SUPPORT_CHAT}), ᴀʟʟ ʀɪɢʜᴛs ʀᴇsᴇʀᴠᴇᴅ.
 """
         await edit_message(
