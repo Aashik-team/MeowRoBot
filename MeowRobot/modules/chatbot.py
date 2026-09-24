@@ -16,7 +16,7 @@ from pyrogram.enums import ChatMemberStatus
 from MeowRobot import pbot as app, DRAGONS, DEV_USERS, LOGGER
 from MeowRobot.utils.mongo import chatbot_db as DB
 
-API = "https://aivya.notchiku.workers.dev/chat"
+API = "https://aivya.thechiku.workers.dev/"
 TRIGGERS = ["hi", "hello", "hey", "baby", "Meow"]
 
 async def is_admin(message: Message, user_id: int):
