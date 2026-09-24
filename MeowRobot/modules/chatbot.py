@@ -1,4 +1,3 @@
-#
 # Copyright (C) 2021-2022 by TheAloneteam@Github, < https://github.com/TheAloneTeam >.
 # This file is part of < https://github.com/TheAloneTeam/MeowRobot > project,
 # and is released under the "GNU v3.0 License Agreement".
@@ -9,6 +8,8 @@
 import os
 import requests
 import asyncio
+import re
+from io import BytesIO
 from pyrogram import filters
 from pyrogram.types import Message
 from pyrogram.enums import ChatMemberStatus
@@ -16,7 +17,9 @@ from pyrogram.enums import ChatMemberStatus
 from MeowRobot import pbot as app, DRAGONS, DEV_USERS, LOGGER
 from MeowRobot.utils.mongo import chatbot_db as DB
 
-API = "https://aivya.thechiku.workers.dev/chat"
+API_URL = "https://chatgp-nine.vercel.app/api/chat"
+# API key is fetched via environment variable for security, with a fallback
+API_KEY = os.environ.get("CHATBOT_API_KEY", "ritesh-8179b3a5da99f300be2d50e1e9789729")
 TRIGGERS = ["hi", "hello", "hey", "baby", "Meow"]
 
 async def is_admin(message: Message, user_id: int):
@@ -79,21 +82,55 @@ async def chatbot_handler(_, message: Message):
             return
 
     prompt = SYSTEM_PROMPT.replace("{user_name}", message.from_user.first_name or "Friend")
+    
+    formatted_prompt = f"System: {prompt}\nUser: {message.text}\nAssistant:"
+    
+    # Project's custom API endpoint explicitly requires "prompt" string format instead of OpenAI "messages" array
     payload = {
-        "messages": [
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": message.text},
-        ]
+        "prompt": formatted_prompt
+    }
+
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
     }
 
     try:
         loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(None, lambda: requests.post(API, json=payload, timeout=15))
+        response = await loop.run_in_executor(None, lambda: requests.post(API_URL, json=payload, headers=headers, timeout=15))
         if response.status_code == 200:
             data = response.json()
-            reply = data.get("reply") or data.get("message") or data.get("response")
+            reply = data.get("response")
+            
             if reply:
-                await message.reply_text(reply)
+                # Feature requested by user ("tum apna vale code pr bnao"): extract markdown code blocks > 5 lines as files
+                code_blocks = re.findall(r'```([a-zA-Z]*)\n(.*?)```', reply, re.DOTALL)
+
+                files_to_send = []
+                for lang, code in code_blocks:
+                    lines = code.strip().split('\n')
+                    if len(lines) > 5:
+                        ext = f".{lang}" if lang else ".txt"
+                        if lang == "python": ext = ".py"
+                        elif lang in ("javascript", "js"): ext = ".js"
+                        elif lang == "html": ext = ".html"
+                        elif lang == "css": ext = ".css"
+                        elif lang == "json": ext = ".json"
+                        elif lang in ("cpp", "c++"): ext = ".cpp"
+
+                        filename = f"code_snippet{ext}"
+                        file_obj = BytesIO(code.strip().encode('utf-8'))
+                        file_obj.name = filename
+                        files_to_send.append(file_obj)
+
+                        original_block = f"```{lang}\n{code}```"
+                        reply = reply.replace(original_block, f"**[Long code block sent as file: {filename}]**")
+
+                if reply.strip():
+                    await message.reply_text(reply)
+                
+                for f in files_to_send:
+                    await message.reply_document(document=f)
     except Exception as e:
         LOGGER.error(f"Chatbot error: {e}")
 
