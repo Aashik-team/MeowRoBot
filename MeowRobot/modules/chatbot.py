@@ -6,13 +6,13 @@
 # All rights reserved.
 
 import os
-import requests
 import asyncio
 import re
+import aiohttp
 from io import BytesIO
 from pyrogram import filters
 from pyrogram.types import Message
-from pyrogram.enums import ChatMemberStatus
+from pyrogram.enums import ChatMemberStatus, ChatAction
 
 from MeowRobot import pbot as app, DRAGONS, DEV_USERS, LOGGER
 from MeowRobot.utils.mongo import chatbot_db as DB
@@ -21,6 +21,15 @@ API_URL = "https://chatgp-nine.vercel.app/api/chat"
 # API key is fetched via environment variable for security, with a fallback
 API_KEY = os.environ.get("CHATBOT_API_KEY", "ritesh-8179b3a5da99f300be2d50e1e9789729")
 TRIGGERS = ["hi", "hello", "hey", "baby", "Meow"]
+
+# A global aiohttp session for connection pooling
+AIOHTTP_SESSION = None
+
+async def get_session():
+    global AIOHTTP_SESSION
+    if AIOHTTP_SESSION is None or AIOHTTP_SESSION.closed:
+        AIOHTTP_SESSION = aiohttp.ClientSession()
+    return AIOHTTP_SESSION
 
 async def is_admin(message: Message, user_id: int):
     if user_id in DRAGONS or user_id in DEV_USERS:
@@ -81,6 +90,12 @@ async def chatbot_handler(_, message: Message):
         if not is_trigger and not is_reply_to_bot:
             return
 
+    # Send typing action to give immediate visual feedback
+    try:
+        await app.send_chat_action(chat_id, ChatAction.TYPING)
+    except Exception:
+        pass
+
     prompt = SYSTEM_PROMPT.replace("{user_name}", message.from_user.first_name or "Friend")
     
     formatted_prompt = f"System: {prompt}\nUser: {message.text}\nAssistant:"
@@ -96,41 +111,46 @@ async def chatbot_handler(_, message: Message):
     }
 
     try:
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(None, lambda: requests.post(API_URL, json=payload, headers=headers, timeout=15))
-        if response.status_code == 200:
-            data = response.json()
-            reply = data.get("response")
-            
-            if reply:
-                # Feature requested by user ("tum apna vale code pr bnao"): extract markdown code blocks > 5 lines as files
-                code_blocks = re.findall(r'```([a-zA-Z]*)\n(.*?)```', reply, re.DOTALL)
-
-                files_to_send = []
-                for lang, code in code_blocks:
-                    lines = code.strip().split('\n')
-                    if len(lines) > 5:
-                        ext = f".{lang}" if lang else ".txt"
-                        if lang == "python": ext = ".py"
-                        elif lang in ("javascript", "js"): ext = ".js"
-                        elif lang == "html": ext = ".html"
-                        elif lang == "css": ext = ".css"
-                        elif lang == "json": ext = ".json"
-                        elif lang in ("cpp", "c++"): ext = ".cpp"
-
-                        filename = f"code_snippet{ext}"
-                        file_obj = BytesIO(code.strip().encode('utf-8'))
-                        file_obj.name = filename
-                        files_to_send.append(file_obj)
-
-                        original_block = f"```{lang}\n{code}```"
-                        reply = reply.replace(original_block, f"**[Long code block sent as file: {filename}]**")
-
-                if reply.strip():
-                    await message.reply_text(reply)
+        session = await get_session()
+        # Using aiohttp for non-blocking async IO, making it much faster
+        async with session.post(API_URL, json=payload, headers=headers, timeout=15) as response:
+            if response.status == 200:
+                data = await response.json()
+                reply = data.get("response")
                 
-                for f in files_to_send:
-                    await message.reply_document(document=f)
+                if reply:
+                    # Feature requested by user ("tum apna vale code pr bnao"): extract markdown code blocks > 5 lines as files
+                    code_blocks = re.findall(r'```([a-zA-Z]*)\n(.*?)```', reply, re.DOTALL)
+
+                    files_to_send = []
+                    for lang, code in code_blocks:
+                        lines = code.strip().split('\n')
+                        if len(lines) > 5:
+                            ext = f".{lang}" if lang else ".txt"
+                            if lang == "python": ext = ".py"
+                            elif lang in ("javascript", "js"): ext = ".js"
+                            elif lang == "html": ext = ".html"
+                            elif lang == "css": ext = ".css"
+                            elif lang == "json": ext = ".json"
+                            elif lang in ("cpp", "c++"): ext = ".cpp"
+
+                            filename = f"code_snippet{ext}"
+                            file_obj = BytesIO(code.strip().encode('utf-8'))
+                            file_obj.name = filename
+                            files_to_send.append(file_obj)
+
+                            original_block = f"```{lang}\n{code}```"
+                            reply = reply.replace(original_block, f"**[Long code block sent as file: {filename}]**")
+
+                    if reply.strip():
+                        await message.reply_text(reply)
+                    
+                    for f in files_to_send:
+                        await message.reply_document(document=f)
+            else:
+                LOGGER.error(f"Chatbot API error: {response.status}")
+    except asyncio.TimeoutError:
+        LOGGER.error("Chatbot request timed out")
     except Exception as e:
         LOGGER.error(f"Chatbot error: {e}")
 
