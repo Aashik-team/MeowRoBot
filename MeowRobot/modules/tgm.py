@@ -1,12 +1,36 @@
-
-
 import os
+import requests
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from MeowRobot import pbot as bot  # <-- apne repo ke hisaab se change karna
-from meowbox import upload_async
-from meowbox.exceptions import UploadError, RateLimitError
+
+
+def upload_yuki(file_path: str):
+    try:
+        with open(file_path, "rb") as f:
+            r = requests.post(
+                "https://yukiapi.site/upload",
+                files={"file": f},
+                timeout=120,
+            )
+        if not r.text.strip():
+            return False, "YukiAPI: empty response"
+
+        data = r.json()
+
+        if r.status_code != 200:
+            return False, f"YukiAPI: {r.status_code} - {str(data)[:100]}"
+
+        if isinstance(data, dict):
+            link = data.get("url", "")
+            if link and link.startswith("http"):
+                return True, link
+            return False, f"YukiAPI: {str(data)[:100]}"
+
+        return False, f"YukiAPI: unexpected response - {str(data)[:100]}"
+    except Exception as e:
+        return False, f"YukiAPI error: {e}"
 
 
 @bot.on_message(filters.command(["tgm", "tm", "meow"]))
@@ -36,27 +60,21 @@ async def telegraph_upload(_, message):
 
     try:
         path = await reply.download()
-        await msg.edit("📤 Uploading to Meowbox...")
+        await msg.edit("📤 Uploading to YukiAPI...")
 
-        urls = await upload_async(path)
-        url = urls[0] if urls else None
+        import asyncio
+        success, result = await asyncio.to_thread(upload_yuki, path)
 
-        if url:
+        if success:
             await msg.edit(
-                f"✅ Uploaded Successfully\n\n🔗 {url}",
+                f"✅ Uploaded Successfully\n\n🔗 {result}",
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("🌐 Open Link", url=url)]]
+                    [[InlineKeyboardButton("🌐 Open Link", url=result)]]
                 ),
                 disable_web_page_preview=False
             )
         else:
-            await msg.edit("❌ Upload failed: No URL returned")
-
-    except RateLimitError as e:
-        await msg.edit(f"❌ Rate limit hit! Retry after {e.retry_after}s")
-
-    except UploadError as e:
-        await msg.edit(f"❌ Meowbox error:\n{e}")
+            await msg.edit(f"❌ Upload failed: {result}")
 
     except Exception as e:
         await msg.edit(f"❌ Error:\n{e}")
@@ -66,9 +84,9 @@ async def telegraph_upload(_, message):
             os.remove(path)
 
 
-__mod_name__ = "Tɢ-M"
+mod_name = "Tɢ-M"
 
-__help__ = """
+help = """
 ❍ /tgm : Reply to media to get direct link
 
 Supports:
