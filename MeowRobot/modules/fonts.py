@@ -1,206 +1,195 @@
-#
-# Copyright (C) 2021-2022 by TheAloneteam@Github, < https://github.com/TheAloneTeam >.
-# This file is part of < https://github.com/TheAloneTeam/MeowRobot > project,
-# and is released under the "GNU v3.0 License Agreement".
-# Please see < https://github.com/TheAloneTeam/MeowRobot/blob/master/LICENSE >
-#
-# All rights reserved.
+import math
 
-from pyrogram import filters
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram import Client, filters
+from pyrogram.types import (CallbackQuery, InlineKeyboardButton,
+                            InlineKeyboardMarkup, Message)
 
+from MeowRobot import pbot as app
 from MeowRobot import pbot
 from MeowRobot.utils.fonts import Fonts
 
+# Font styles mapping
+FONT_STYLES = {
+    "typewriter": Fonts.typewriter,
+    "outline": Fonts.outline,
+    "serif": Fonts.serief,
+    "bold_cool": Fonts.bold_cool,
+    "cool": Fonts.cool,
+    "small_cap": Fonts.smallcap,
+    "script": Fonts.script,
+    "script_bolt": Fonts.bold_script,
+    "tiny": Fonts.tiny,
+    "comic": Fonts.comic,
+    "sans": Fonts.san,
+    "slant_sans": Fonts.slant_san,
+    "slant": Fonts.slant,
+    "sim": Fonts.sim,
+    "circles": Fonts.circles,
+    "circle_dark": Fonts.dark_circle,
+    "gothic": Fonts.gothic,
+    "gothic_bolt": Fonts.bold_gothic,
+    "cloud": Fonts.cloud,
+    "happy": Fonts.happy,
+    "sad": Fonts.sad,
+    "special": Fonts.special,
+    "squares": Fonts.square,
+    "squares_bold": Fonts.dark_square,
+    "andalucia": Fonts.andalucia,
+    "manga": Fonts.manga,
+    "stinky": Fonts.stinky,
+    "bubbles": Fonts.bubbles,
+    "underline": Fonts.underline,
+    "ladybug": Fonts.ladybug,
+    "rays": Fonts.rays,
+    "birds": Fonts.birds,
+    "slash": Fonts.slash,
+    "stop": Fonts.stop,
+    "skyline": Fonts.skyline,
+    "arrows": Fonts.arrows,
+    "qvnes": Fonts.rvnes,
+    "strike": Fonts.strike,
+    "frozen": Fonts.frozen,
+}
 
+PER_PAGE = 6  # 6 fonts per page
+
+
+# Main /font command
 @pbot.on_message(filters.command(["font", "fonts"]))
-async def style_buttons(c, m, cb=False):
-    buttons = [
-        [
-            InlineKeyboardButton("𝚃𝚢𝚙𝚎𝚠𝚛𝚒𝚝𝚎𝚛", callback_data="style+typewriter"),
-            InlineKeyboardButton("𝕆𝕦𝕥𝕝𝕚𝕟𝕖", callback_data="style+outline"),
-            InlineKeyboardButton("𝐒𝐞𝐫𝐢𝐟", callback_data="style+serif"),
-        ],
-        [
-            InlineKeyboardButton("𝑺𝒆𝒓𝒊𝒇", callback_data="style+bold_cool"),
-            InlineKeyboardButton("𝑆𝑒𝑟𝑖𝑓", callback_data="style+cool"),
-            InlineKeyboardButton("Sᴍᴀʟʟ Cᴀᴘs", callback_data="style+small_cap"),
-        ],
-        [
-            InlineKeyboardButton("𝓈𝒸𝓇𝒾𝓅𝓉", callback_data="style+script"),
-            InlineKeyboardButton("𝓼𝓬𝓻𝓲𝓹𝓽", callback_data="style+script_bolt"),
-            InlineKeyboardButton("ᵗⁱⁿʸ", callback_data="style+tiny"),
-        ],
-        [
-            InlineKeyboardButton("ᑕOᗰIᑕ", callback_data="style+comic"),
-            InlineKeyboardButton("𝗦𝗮𝗻𝘀", callback_data="style+sans"),
-            InlineKeyboardButton("𝙎𝙖𝙣𝙨", callback_data="style+slant_sans"),
-        ],
-        [
-            InlineKeyboardButton("𝘚𝘢𝘯𝘴", callback_data="style+slant"),
-            InlineKeyboardButton("𝖲𝖺𝗇𝗌", callback_data="style+sim"),
-            InlineKeyboardButton("Ⓒ︎Ⓘ︎Ⓡ︎Ⓒ︎Ⓛ︎Ⓔ︎Ⓢ︎", callback_data="style+circles"),
-        ],
-        [
-            InlineKeyboardButton("🅒︎🅘︎🅡︎🅒︎🅛︎🅔︎🅢︎", callback_data="style+circle_dark"),
-            InlineKeyboardButton("𝔊𝔬𝔱𝔥𝔦𝔠", callback_data="style+gothic"),
-            InlineKeyboardButton("𝕲𝖔𝖙𝖍𝖎𝖈", callback_data="style+gothic_bolt"),
-        ],
-        [
-            InlineKeyboardButton("C͜͡l͜͡o͜͡u͜͡d͜͡s͜͡", callback_data="style+cloud"),
-            InlineKeyboardButton("H̆̈ă̈p̆̈p̆̈y̆̈", callback_data="style+happy"),
-            InlineKeyboardButton("S̑̈ȃ̈d̑̈", callback_data="style+sad"),
-        ],
-        [InlineKeyboardButton("ɴᴇxᴛ ➻", callback_data="nxt")],
-    ]
-    if not cb:
-        if len(m.text.split()) < 2:
-            await m.reply_text("Provide some text to style!")
-            return
-        await m.reply_text(
-            text=m.text.split(None, 1)[1],
-            reply_markup=InlineKeyboardMarkup(buttons),
-            quote=True,
-        )
+async def font_command(c: Client, message: Message):
+    if message.reply_to_message:
+        text = message.reply_to_message.text
     else:
-        await m.answer()
-        await m.message.edit_reply_markup(InlineKeyboardMarkup(buttons))
+        if len(message.command) < 2:
+            return await message.reply("Please provide some text to style.")
+        text = message.text.split(None, 1)[1]
+
+    keyboard = get_font_keyboard(0, text)
+    await message.reply("Select a font style to apply:", reply_markup=keyboard)
 
 
-@pbot.on_callback_query(filters.regex("^nxt"))
-async def nxt(c, m):
-    if m.data == "nxt":
-        buttons = [
-            [
-                InlineKeyboardButton("🇸 🇵 🇪 🇨 🇮 🇦 🇱 ", callback_data="style+special"),
-                InlineKeyboardButton("🅂🅀🅄🄰🅁🄴🅂", callback_data="style+squares"),
-                InlineKeyboardButton("🆂︎🆀︎🆄︎🅰︎🆁︎🅴︎🆂︎", callback_data="style+squares_bold"),
-            ],
-            [
-                InlineKeyboardButton("ꪖꪀᦔꪖꪶꪊᥴ𝓲ꪖ", callback_data="style+andalucia"),
-                InlineKeyboardButton("爪卂几ᘜ卂", callback_data="style+manga"),
-                InlineKeyboardButton("S̾t̾i̾n̾k̾y̾", callback_data="style+stinky"),
-            ],
-            [
-                InlineKeyboardButton("B̥ͦu̥ͦb̥ͦb̥ͦl̥ͦe̥ͦs̥ͦ", callback_data="style+bubbles"),
-                InlineKeyboardButton("U͟n͟d͟e͟r͟l͟i͟n͟e͟", callback_data="style+underline"),
-                InlineKeyboardButton("꒒ꍏꀷꌩꌃꀎꁅ", callback_data="style+ladybug"),
-            ],
-            [
-                InlineKeyboardButton("R҉a҉y҉s҉", callback_data="style+rays"),
-                InlineKeyboardButton("B҈i҈r҈d҈s҈", callback_data="style+birds"),
-                InlineKeyboardButton("S̸l̸a̸s̸h̸", callback_data="style+slash"),
-            ],
-            [
-                InlineKeyboardButton("s⃠t⃠o⃠p⃠", callback_data="style+stop"),
-                InlineKeyboardButton("S̺͆k̺͆y̺͆l̺͆i̺͆n̺͆e̺͆", callback_data="style+skyline"),
-                InlineKeyboardButton("A͎r͎r͎o͎w͎s͎", callback_data="style+arrows"),
-            ],
-            [
-                InlineKeyboardButton("ዪሀክቿነ", callback_data="style+qvnes"),
-                InlineKeyboardButton("S̶t̶r̶i̶k̶e̶", callback_data="style+strike"),
-                InlineKeyboardButton("F༙r༙o༙z༙e༙n༙", callback_data="style+frozen"),
-            ],
-            [InlineKeyboardButton("ʙᴀᴄᴋ", callback_data="nxt+0")],
-        ]
-        await m.answer()
-        await m.message.edit_reply_markup(InlineKeyboardMarkup(buttons))
-    else:
-        await style_buttons(c, m, cb=True)
+# Generate font selection buttons
+def get_font_keyboard(page: int, text: str) -> InlineKeyboardMarkup:
+    styles = list(FONT_STYLES.keys())
+    total_pages = math.ceil(len(styles) / PER_PAGE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * PER_PAGE
+    end = start + PER_PAGE
+    style_buttons = []
+
+    # Use first word or first few chars for preview to avoid encoding issues
+    preview_text = text.split()[0] if text.split() else text
+    preview_text = preview_text[:8] if len(preview_text) > 8 else preview_text
+
+    # Add style buttons (2 per row)
+    for i in range(start, min(end, len(styles)), 2):
+        row = []
+        for j in range(2):  # 2 buttons per row
+            if i + j < len(styles):
+                style = styles[i + j]
+                # Store only style and page in callback data
+                callback_data = f"font+{style}+{page}"
+
+                try:
+                    # Create preview with the font style
+                    styled_preview = FONT_STYLES[style](preview_text)
+                    button_text = f"{styled_preview}"
+                except Exception:
+                    # Fallback to style name if font conversion fails
+                    button_text = style.replace("_", " ").title()
+
+                row.append(InlineKeyboardButton(button_text, callback_data=callback_data))
+        if row:  # Only add non-empty rows
+            style_buttons.append(row)
+
+    # Add navigation buttons
+    nav_buttons = []
+    if total_pages > 1:
+        # Back and Next buttons in one row
+        nav_row = []
+        if page > 0:
+            nav_row.append(InlineKeyboardButton("⬅️ Back", callback_data=f"font_nav+{page - 1}"))
+        if page < total_pages - 1:
+            nav_row.append(InlineKeyboardButton("➡️ Next", callback_data=f"font_nav+{page + 1}"))
+
+        if nav_row:
+            nav_buttons.append(nav_row)
+
+    # Close button in separate row below navigation
+    nav_buttons.append([InlineKeyboardButton("❌ Close", callback_data="font_close")])
+
+    style_buttons.extend(nav_buttons)
+    return InlineKeyboardMarkup(style_buttons)
 
 
-@pbot.on_callback_query(filters.regex("^style"))
-async def style(c, m):
-    await m.answer()
-    cmd, style_name = m.data.split("+")
+def extract_original_text(query: CallbackQuery) -> str:
+    """Helper to extract the original text the user wanted to style."""
+    msg = query.message.reply_to_message
+    if not msg:
+        return ""
+    if msg.reply_to_message:
+        return msg.reply_to_message.text or ""
+    elif len(msg.command) > 1:
+        return msg.text.split(None, 1)[1]
+    return ""
 
-    if style_name == "typewriter":
-        cls = Fonts.typewriter
-    elif style_name == "outline":
-        cls = Fonts.outline
-    elif style_name == "serif":
-        cls = Fonts.serief
-    elif style_name == "bold_cool":
-        cls = Fonts.bold_cool
-    elif style_name == "cool":
-        cls = Fonts.cool
-    elif style_name == "small_cap":
-        cls = Fonts.smallcap
-    elif style_name == "script":
-        cls = Fonts.script
-    elif style_name == "script_bolt":
-        cls = Fonts.bold_script
-    elif style_name == "tiny":
-        cls = Fonts.tiny
-    elif style_name == "comic":
-        cls = Fonts.comic
-    elif style_name == "sans":
-        cls = Fonts.san
-    elif style_name == "slant_sans":
-        cls = Fonts.slant_san
-    elif style_name == "slant":
-        cls = Fonts.slant
-    elif style_name == "sim":
-        cls = Fonts.sim
-    elif style_name == "circles":
-        cls = Fonts.circles
-    elif style_name == "circle_dark":
-        cls = Fonts.dark_circle
-    elif style_name == "gothic":
-        cls = Fonts.gothic
-    elif style_name == "gothic_bolt":
-        cls = Fonts.bold_gothic
-    elif style_name == "cloud":
-        cls = Fonts.cloud
-    elif style_name == "happy":
-        cls = Fonts.happy
-    elif style_name == "sad":
-        cls = Fonts.sad
-    elif style_name == "special":
-        cls = Fonts.special
-    elif style_name == "squares":
-        cls = Fonts.square
-    elif style_name == "squares_bold":
-        cls = Fonts.dark_square
-    elif style_name == "andalucia":
-        cls = Fonts.andalucia
-    elif style_name == "manga":
-        cls = Fonts.manga
-    elif style_name == "stinky":
-        cls = Fonts.stinky
-    elif style_name == "bubbles":
-        cls = Fonts.bubbles
-    elif style_name == "underline":
-        cls = Fonts.underline
-    elif style_name == "ladybug":
-        cls = Fonts.ladybug
-    elif style_name == "rays":
-        cls = Fonts.rays
-    elif style_name == "birds":
-        cls = Fonts.birds
-    elif style_name == "slash":
-        cls = Fonts.slash
-    elif style_name == "stop":
-        cls = Fonts.stop
-    elif style_name == "skyline":
-        cls = Fonts.skyline
-    elif style_name == "arrows":
-        cls = Fonts.arrows
-    elif style_name == "qvnes":
-        cls = Fonts.rvnes
-    elif style_name == "strike":
-        cls = Fonts.strike
-    elif style_name == "frozen":
-        cls = Fonts.frozen
-    else:
-        return
 
-    new_text = cls(m.message.reply_to_message.text.split(None, 1)[1])
+# Handle font style button clicks
+@pbot.on_callback_query(filters.regex("^font\\+"))
+async def apply_font_style(c: Client, query: CallbackQuery):
     try:
-        await m.message.edit_text(new_text, reply_markup=m.message.reply_markup)
-    except:
-        pass
+        parts = query.data.split("+", 2)  # Split into 3 parts: 'font', style, page
+        if len(parts) < 3:
+            await query.answer("Invalid data format!", show_alert=True)
+            return
 
+        style = parts[1]
+
+        text = extract_original_text(query)
+        if not text:
+            await query.answer("Could not extract original text!", show_alert=True)
+            return
+
+        if style in FONT_STYLES:
+            styled = FONT_STYLES[style](text)
+            await query.edit_message_text(styled, reply_markup=query.message.reply_markup)
+        else:
+            await query.answer("Unknown style!", show_alert=True)
+    except Exception:
+        await query.answer("Error applying style!", show_alert=True)
+
+
+# Handle pagination
+@pbot.on_callback_query(filters.regex("^font_nav\\+"))
+async def paginate_fonts(c: Client, query: CallbackQuery):
+    try:
+        parts = query.data.split("+", 1)  # Split into 2 parts: 'font_nav', page
+        if len(parts) < 2:
+            await query.answer("Invalid navigation data!", show_alert=True)
+            return
+
+        page = int(parts[1])
+
+        text = extract_original_text(query)
+        if not text:
+            await query.answer("Could not extract original text!", show_alert=True)
+            return
+
+        keyboard = get_font_keyboard(page, text)
+        await query.edit_message_reply_markup(reply_markup=keyboard)
+        await query.answer()  # Acknowledge the callback
+    except Exception:
+        await query.answer("Unable to paginate.", show_alert=True)
+
+
+# Handle close button
+@pbot.on_callback_query(filters.regex("^font_close$"))
+async def close_fonts(c: Client, query: CallbackQuery):
+    try:
+        await query.message.delete()
+    except Exception:
+        await query.message.edit_text("Font selector closed.")
+        await query.answer()
 
 __help__ = """
  ❍ /font <text> *:* ᴄᴏɴᴠᴇʀᴛs sɪᴍᴩʟᴇ ᴛᴇxᴛ ᴛᴏ ʙᴇᴀᴜᴛɪғᴜʟ ᴛᴇxᴛ ʙʏ ᴄʜᴀɴɢɪɴɢ ɪᴛ's ғᴏɴᴛ.
