@@ -9,17 +9,20 @@ import os
 import requests
 import asyncio
 import re
+from collections import deque, defaultdict
 from io import BytesIO
 from pyrogram import filters
 from pyrogram.types import Message
-from pyrogram.enums import ChatMemberStatus
+from pyrogram.enums import ChatMemberStatus, ChatAction
 
 from MeowRobot import pbot as app, DRAGONS, DEV_USERS, LOGGER
 from MeowRobot.utils.mongo import chatbot_db as DB
 
 API_URL = "https://chatgp-nine.vercel.app/api/chat"
 API_KEY = "ritesh-8179b3a5da99f300be2d50e1e9789729"
-TRIGGERS = ["hi", "hello", "hey", "baby", "Meow"]
+
+# Store last 30 messages per chat to provide conversation context
+chat_histories = defaultdict(lambda: deque(maxlen=30))
 
 async def is_admin(message: Message, user_id: int):
     if user_id in DRAGONS or user_id in DEV_USERS:
@@ -65,24 +68,31 @@ async def chatbot_handler(_, message: Message):
     if not message.text:
         return
 
-    text = message.text.lower().strip()
+    text = message.text.strip()
     chat_id = message.chat.id
+    user_name = message.from_user.first_name or "Unknown"
+
+    # Always log the message to history so the bot knows who said what
+    chat_histories[chat_id].append(f"[{user_name}]: {text}")
 
     if message.chat.type != message.chat.type.PRIVATE:
         settings = await DB.find_one({"chat_id": chat_id})
         if not settings or not settings.get("enabled", False):
             return
 
-        is_trigger = any(t in text for t in TRIGGERS)
         is_reply_to_bot = (message.reply_to_message and message.reply_to_message.from_user and
                            message.reply_to_message.from_user.is_self)
 
-        if not is_trigger and not is_reply_to_bot:
+        # Only respond if the bot is explicitly replied to
+        if not is_reply_to_bot:
             return
 
-    prompt = SYSTEM_PROMPT.replace("{user_name}", message.from_user.first_name or "Friend")
+    prompt = SYSTEM_PROMPT.replace("{user_name}", user_name)
     
-    formatted_prompt = f"System: {prompt}\nUser: {message.text}\nAssistant:"
+    # Compile the recent chat history to provide context
+    history_str = "\n".join(chat_histories[chat_id])
+    
+    formatted_prompt = f"System: {prompt}\n\nRecent Chat Context:\n{history_str}\n\nUser: {text}\nAssistant:"
     
     payload = {
         "prompt": formatted_prompt
@@ -92,6 +102,8 @@ async def chatbot_handler(_, message: Message):
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json"
     }
+
+    await app.send_chat_action(chat_id, ChatAction.TYPING)
 
     try:
         loop = asyncio.get_event_loop()
@@ -127,6 +139,9 @@ async def chatbot_handler(_, message: Message):
                 break
 
         if reply:
+            # Also append the bot's own reply to the history
+            chat_histories[chat_id].append(f"[Assistant]: {reply}")
+            
             code_blocks = re.findall(r'```([a-zA-Z]*)\n(.*?)```', reply, re.DOTALL)
 
             files_to_send = []
@@ -162,5 +177,5 @@ __help__ = """
 AI Chatbot for your group.
 
  ❍ /chatbot <on/off>*:* Toggle AI chatbot in group.
- ❍ Bot responds to triggers (hi, hello, etc.) or when replied to.
+ ❍ Bot responds only when explicitly replied to.
 """
