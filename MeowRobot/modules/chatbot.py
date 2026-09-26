@@ -6,11 +6,17 @@
 # All rights reserved.
 
 import os
-import requests
-import asyncio
 import re
-from collections import deque, defaultdict
+import random
+import asyncio
 from io import BytesIO
+from collections import OrderedDict
+
+import requests
+from functools import partial
+from gtts import gTTS
+import speech_recognition as sr
+from pydub import AudioSegment
 from pyrogram import filters
 from pyrogram.types import Message
 from pyrogram.enums import ChatMemberStatus, ChatAction
@@ -18,11 +24,30 @@ from pyrogram.enums import ChatMemberStatus, ChatAction
 from MeowRobot import pbot as app, DRAGONS, DEV_USERS, LOGGER
 from MeowRobot.utils.mongo import chatbot_db as DB
 
-API_URL = "https://chatgp-nine.vercel.app/api/chat"
-API_KEY = "ritesh-8179b3a5da99f300be2d50e1e9789729"
+API = "https://aivya.thechiku.workers.dev/chat"
+TRIGGERS = ["hi", "hello", "hey", "baby", "Meow"]
 
-# Store last 30 messages per chat to provide conversation context
-chat_histories = defaultdict(lambda: deque(maxlen=30))
+class LRUCache:
+    def __init__(self, capacity: int):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+        
+    def get(self, key):
+        if key not in self.cache:
+            return []
+        self.cache.move_to_end(key)
+        return self.cache[key]
+        
+    def put(self, key, value):
+        self.cache[key] = value
+        self.cache.move_to_end(key)
+        if len(self.cache) > self.capacity:
+            self.cache.popitem(last=False)
+
+# Conversation history tracking (chat_id -> list of messages)
+# Max 1000 chats in memory to prevent leaks
+chat_histories = LRUCache(1000)
+HISTORY_LIMIT = 30
 
 async def is_admin(message: Message, user_id: int):
     if user_id in DRAGONS or user_id in DEV_USERS:
@@ -41,7 +66,7 @@ def load_prompt():
                 return f.read().strip()
     except:
         pass
-    return "You are MeowRoBot AI. User is {user_name}. Reply friendly and helpful. You are a powerful group management bot."
+    return "You are a sweet, friendly girl chatting naturally in Hinglish and English. Keep replies very short and human-like. User is {user_name}. Never admit you are an AI."
 
 SYSTEM_PROMPT = load_prompt()
 
@@ -63,112 +88,221 @@ async def chatbot_toggle(_, message: Message):
     else:
         await message.reply_text("Invalid argument. Use `on` or `off`.")
 
-@app.on_message(filters.text & ~filters.regex(r"^/") & ~filters.bot, group=10)
+@app.on_message(filters.command("voice") & filters.group)
+async def voice_toggle(_, message: Message):
+    if not await is_admin(message, message.from_user.id):
+        return await message.reply_text("❗ Only admins can use this command.")
+
+    if len(message.command) < 2:
+        return await message.reply_text("Usage:\n/voice on - Enable Voice Mode (Bot will reply with Audio)\n/voice off - Disable Voice Mode (Bot will reply with Text)")
+
+    arg = message.command[1].lower()
+    if arg == "on":
+        await DB.update_one({"chat_id": message.chat.id}, {"$set": {"voice_enabled": True}}, upsert=True)
+        await message.reply_text("🎙 Voice Mode is now ENABLED. I will reply with audio notes!")
+    elif arg == "off":
+        await DB.update_one({"chat_id": message.chat.id}, {"$set": {"voice_enabled": False}}, upsert=True)
+        await message.reply_text("📝 Voice Mode is now DISABLED. I will reply with text.")
+    else:
+        await message.reply_text("Invalid argument. Use `on` or `off`.")
+
+def text_to_speech(text: str) -> BytesIO:
+    tts = gTTS(text, lang='hi') # Hindi supports Hinglish well
+    mp3_fp = BytesIO()
+    tts.write_to_fp(mp3_fp)
+    mp3_fp.seek(0)
+    
+    try:
+        # Convert mp3 to ogg opus for Telegram using pydub
+        audio = AudioSegment.from_file(mp3_fp, format="mp3")
+        ogg_fp = BytesIO()
+        ogg_fp.name = "voice.ogg"
+        audio.export(ogg_fp, format="ogg", codec="libopus")
+        ogg_fp.seek(0)
+        return ogg_fp
+    except Exception as e:
+        LOGGER.error(f"Pydub/ffmpeg error during TTS: {e}")
+        # Fallback to mp3 just in case, though Telegram might reject it
+        mp3_fp.name = "voice.mp3"
+        return mp3_fp
+
+async def fetch_chat_response(payload: dict) -> dict:
+    loop = asyncio.get_event_loop()
+    
+    for attempt in range(3):
+        try:
+            # Run requests.post in executor to avoid blocking the async loop
+            response = await loop.run_in_executor(None, partial(requests.post, API, json=payload, timeout=15.0))
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code in [429, 500, 502, 503]:
+                await asyncio.sleep(1.0 * (attempt + 1))
+            else:
+                return None
+        except Exception as e:
+            await asyncio.sleep(1.0 * (attempt + 1))
+    return None
+
+async def transcribe_voice(file_path: str) -> str:
+    loop = asyncio.get_event_loop()
+    def _transcribe():
+        wav_path = file_path + ".wav"
+        try:
+            # Convert OGG to WAV using pydub (requires ffmpeg installed on host)
+            audio = AudioSegment.from_ogg(file_path)
+            audio.export(wav_path, format="wav")
+            
+            recognizer = sr.Recognizer()
+            with sr.AudioFile(wav_path) as source:
+                audio_data = recognizer.record(source)
+                # Use Google STT with hi-IN language to catch both Hindi and English
+                text = recognizer.recognize_google(audio_data, language="hi-IN")
+            
+            return text
+        except Exception as e:
+            LOGGER.error(f"STT Error: {e}")
+            return ""
+        finally:
+            if os.path.exists(wav_path):
+                os.remove(wav_path)
+            
+    return await loop.run_in_executor(None, _transcribe)
+
+@app.on_message((filters.text | filters.caption | filters.voice) & ~filters.regex(r"^/") & ~filters.bot, group=10)
 async def chatbot_handler(_, message: Message):
-    if not message.text:
-        return
-
-    text = message.text.strip()
     chat_id = message.chat.id
-    user_name = message.from_user.first_name or "Unknown"
+    voice_enabled = False
 
-    # Always log the message to history so the bot knows who said what
-    chat_histories[chat_id].append(f"[{user_name}]: {text}")
-
+    # Check database early so we don't process voice/text if bot is disabled in this group
     if message.chat.type != message.chat.type.PRIVATE:
         settings = await DB.find_one({"chat_id": chat_id})
         if not settings or not settings.get("enabled", False):
             return
+        voice_enabled = settings.get("voice_enabled", False)
 
-        is_reply_to_bot = (message.reply_to_message and message.reply_to_message.from_user and
-                           message.reply_to_message.from_user.is_self)
+    input_text = message.text or message.caption
 
-        # Only respond if the bot is explicitly replied to
-        if not is_reply_to_bot:
+    # Handle incoming voice messages
+    if message.voice:
+        try:
+            await app.send_chat_action(chat_id, ChatAction.TYPING)
+            downloaded_file = await message.download()
+            input_text = await transcribe_voice(downloaded_file)
+            os.remove(downloaded_file)
+            if not input_text:
+                return
+        except Exception as e:
+            LOGGER.error(f"Voice handling error: {e}")
+            if "ffprobe" in str(e).lower() or "ffmpeg" in str(e).lower():
+                await message.reply_text("❗ Voice feature requires `ffmpeg` installed on the server.")
             return
 
+    if not input_text:
+        return
+
+    text_lower = input_text.lower().strip()
+
+    if message.chat.type != message.chat.type.PRIVATE:
+        is_trigger = any(t in text_lower for t in TRIGGERS)
+        is_reply_to_bot = (message.reply_to_message and message.reply_to_message.from_user and
+                           message.reply_to_message.from_user.is_self)
+        is_mentioned = app.me and app.me.username and (f"@{app.me.username.lower()}" in text_lower) # basic mention check
+
+        if not (is_trigger or is_reply_to_bot or is_mentioned):
+            return
+
+    # Clean text from mention
+    if app.me and app.me.username:
+        bot_mention = f"@{app.me.username}"
+        if bot_mention in input_text:
+            input_text = input_text.replace(bot_mention, "").strip()
+            if not input_text:
+                return
+
+    user_name = message.from_user.first_name if message.from_user else "Friend"
+    group_name = message.chat.title if message.chat else "Private Chat"
+    
     prompt = SYSTEM_PROMPT.replace("{user_name}", user_name)
-    
-    # Compile the recent chat history to provide context
-    history_str = "\n".join(chat_histories[chat_id])
-    
-    formatted_prompt = f"System: {prompt}\n\nRecent Chat Context:\n{history_str}\n\nUser: {text}\nAssistant:"
-    
+    prompt += f"\n\nYou are talking in a group named: {group_name}. Be helpful and engaging."
+
+    # Update history
+    history = chat_histories.get(chat_id)
+    history.append({"role": "user", "content": f"{user_name}: {input_text}"})
+    if len(history) > HISTORY_LIMIT:
+        history = history[-HISTORY_LIMIT:]
+    chat_histories.put(chat_id, history)
+
+    messages_payload = [{"role": "system", "content": prompt}] + history
+
     payload = {
-        "prompt": formatted_prompt
+        "messages": messages_payload,
+        "prompt": f"System: {prompt}\nUser: {input_text}\nAssistant:" # Some endpoints need 'prompt'
     }
 
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    await app.send_chat_action(chat_id, ChatAction.TYPING)
+    # Decide if we send a voice note this time. 
+    # If explicitly enabled, always True. 
+    # If the user sent a voice message, we definitely reply with a voice message to match their energy.
+    # Otherwise, give a 15% random chance in normal mode to keep it natural.
+    if message.voice:
+        should_send_voice = True
+    else:
+        should_send_voice = True if voice_enabled else (random.random() < 0.15)
 
     try:
-        loop = asyncio.get_event_loop()
-        reply = None
-        max_retries = 3
+        action = ChatAction.RECORD_AUDIO if should_send_voice else ChatAction.TYPING
+        await app.send_chat_action(chat_id, action)
+    except:
+        pass
 
-        for attempt in range(max_retries):
-            try:
-                response = await loop.run_in_executor(
-                    None, 
-                    lambda: requests.post(API_URL, json=payload, headers=headers, timeout=60)
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    reply = data.get("response")
-                    
-                    if reply and "503" not in reply and "系统通知" not in reply:
-                        break
-                    elif attempt < max_retries - 1:
-                        await asyncio.sleep(2)
-                        continue
-                elif response.status_code in [503, 502, 500, 429] and attempt < max_retries - 1:
-                    await asyncio.sleep(2)
-                    continue
-                else:
-                    reply = None
-                    break
-            except (requests.exceptions.RequestException, asyncio.TimeoutError):
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(2)
-                    continue
-                reply = None
-                break
+    try:
+        data = await fetch_chat_response(payload)
+        if data:
+            reply = data.get("reply") or data.get("message") or data.get("response")
+            if reply:
+                # Add assistant response to history
+                current_history = chat_histories.get(chat_id)
+                current_history.append({"role": "assistant", "content": reply})
+                chat_histories.put(chat_id, current_history)
 
-        if reply:
-            # Also append the bot's own reply to the history
-            chat_histories[chat_id].append(f"[Assistant]: {reply}")
-            
-            code_blocks = re.findall(r'```([a-zA-Z]*)\n(.*?)```', reply, re.DOTALL)
+                # Extract and handle long code blocks
+                code_blocks = re.findall(r'```([a-zA-Z]*)\n(.*?)```', reply, re.DOTALL)
+                files_to_send = []
+                
+                for lang, code in code_blocks:
+                    lines = code.strip().split('\n')
+                    if len(lines) > 5:
+                        ext = f".{lang}" if lang else ".txt"
+                        if lang == "python": ext = ".py"
+                        elif lang in ("javascript", "js"): ext = ".js"
+                        elif lang == "html": ext = ".html"
+                        elif lang == "css": ext = ".css"
+                        elif lang == "json": ext = ".json"
+                        elif lang in ("cpp", "c++"): ext = ".cpp"
+                        elif lang == "sh" or lang == "bash": ext = ".sh"
 
-            files_to_send = []
-            for lang, code in code_blocks:
-                lines = code.strip().split('\n')
-                if len(lines) > 5:
-                    ext = f".{lang}" if lang else ".txt"
-                    if lang == "python": ext = ".py"
-                    elif lang in ("javascript", "js"): ext = ".js"
-                    elif lang == "html": ext = ".html"
-                    elif lang == "css": ext = ".css"
-                    elif lang == "json": ext = ".json"
-                    elif lang in ("cpp", "c++"): ext = ".cpp"
+                        filename = f"code_snippet{ext}"
+                        file_obj = BytesIO(code.strip().encode('utf-8'))
+                        file_obj.name = filename
+                        files_to_send.append(file_obj)
 
-                    filename = f"code_snippet{ext}"
-                    file_obj = BytesIO(code.strip().encode('utf-8'))
-                    file_obj.name = filename
-                    files_to_send.append(file_obj)
+                        original_block = f"```{lang}\n{code}```"
+                        reply = reply.replace(original_block, f"**[Long code block sent as file: {filename}]**")
 
-                    original_block = f"```{lang}\n{code}```"
-                    reply = reply.replace(original_block, f"**[Long code block sent as file: {filename}]**")
+                if reply.strip():
+                    if should_send_voice and not code_blocks: # Only send voice if there's no code block
+                        try:
+                            # Generate TTS asynchronously to avoid blocking
+                            loop = asyncio.get_event_loop()
+                            voice_fp = await loop.run_in_executor(None, text_to_speech, reply)
+                            await message.reply_voice(voice=voice_fp)
+                        except Exception as e:
+                            LOGGER.error(f"TTS error: {e}")
+                            await message.reply_text(reply) # Fallback to text
+                    else:
+                        await message.reply_text(reply)
 
-            if reply.strip():
-                await message.reply_text(reply)
-            
-            for f in files_to_send:
-                await message.reply_document(document=f)
+                for f in files_to_send:
+                    await message.reply_document(document=f)
     except Exception as e:
         LOGGER.error(f"Chatbot error: {e}")
 
@@ -177,5 +311,5 @@ __help__ = """
 AI Chatbot for your group.
 
  ❍ /chatbot <on/off>*:* Toggle AI chatbot in group.
- ❍ Bot responds only when explicitly replied to.
+ ❍ Bot responds to triggers (hi, hello, etc.) or when replied to.
 """
