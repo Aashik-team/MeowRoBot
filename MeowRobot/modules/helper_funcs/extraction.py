@@ -84,15 +84,18 @@ async def extract_user_and_text(
         await message.get_bot().get_chat(user_id)
     except BadRequest as excp:
         if excp.message in ("User_id_invalid", "Chat not found"):
-            message.reply_text(
-                "I don't seem to have interacted with this user before - please forward a message from "
-                "them to give me control! (like a voodoo doll, I need a piece of them to be able "
-                "to execute certain commands...)"
-            )
+            try:
+                await message.chat.get_member(user_id)
+            except BadRequest:
+                await message.reply_text(
+                    "I don't seem to have interacted with this user before - please forward a message from "
+                    "them to give me control! (like a voodoo doll, I need a piece of them to be able "
+                    "to execute certain commands...)"
+                )
+                return None, None
         else:
             LOGGER.exception("Exception %s on user %s", excp.message, user_id)
-
-        return None, None
+            return None, None
 
     return user_id, text
 
