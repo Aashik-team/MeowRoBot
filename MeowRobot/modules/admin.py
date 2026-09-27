@@ -248,7 +248,7 @@ async def promote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
             can_delete_stories=getattr(bot_member, "can_delete_stories", False),
         )
     except BadRequest as err:
-        if err.message == "User_not_mutual_contact":
+        if err.message in ("User_not_mutual_contact", "User not mutual contact", "User not found"):
             await send_message(message, "» ᴀs ɪ ᴄᴀɴ sᴇᴇ ᴛʜᴀᴛ ᴜsᴇʀ ɪs ɴᴏᴛ ᴩʀᴇsᴇɴᴛ ʜᴇʀᴇ.")
         else:
             await send_message(message,
@@ -329,7 +329,7 @@ async def lowpromote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
             can_pin_messages=getattr(bot_member, "can_pin_messages", False),
         )
     except BadRequest as err:
-        if err.message == "User_not_mutual_contact":
+        if err.message in ("User_not_mutual_contact", "User not mutual contact", "User not found"):
             await send_message(message, "» ᴀs ɪ ᴄᴀɴ sᴇᴇ ᴛʜᴀᴛ ᴜsᴇʀ ɪs ɴᴏᴛ ᴩʀᴇsᴇɴᴛ ʜᴇʀᴇ.")
         else:
             await send_message(message,
@@ -421,7 +421,7 @@ async def fullpromote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str
             can_delete_stories=getattr(bot_member, "can_delete_stories", False),
         )
     except BadRequest as err:
-        if err.message == "User_not_mutual_contact":
+        if err.message in ("User_not_mutual_contact", "User not mutual contact", "User not found"):
             await send_message(message, "» ᴀs ɪ ᴄᴀɴ sᴇᴇ ᴛʜᴀᴛ ᴜsᴇʀ ɪs ɴᴏᴛ ᴩʀᴇsᴇɴᴛ ʜᴇʀᴇ.")
         else:
             await send_message(message,

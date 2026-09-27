@@ -150,7 +150,7 @@ async def send(update: Update, context: ContextTypes.DEFAULT_TYPE, message, keyb
                 sent_msg = await msg.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_to_message_id=reply)
             else:
                 sent_msg = await context.bot.send_message(chat.id, text, parse_mode=ParseMode.MARKDOWN)
-        elif excp.message == "Have no rights to send a message":
+        elif excp.message in ("Have no rights to send a message", "Not enough rights to send text messages to the chat"):
             return None
         else:
             text = markdown_parser(
