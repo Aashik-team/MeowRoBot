@@ -11,6 +11,7 @@ import re
 from typing import Optional
 
 from telegram import (
+    CallbackQuery,
     Chat,
     InlineKeyboardButton,
     InlineKeyboardMarkup,

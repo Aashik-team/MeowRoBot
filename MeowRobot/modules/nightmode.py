@@ -10,7 +10,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telethon import functions, types
 from telethon.tl.types import ChatBannedRights
 
-from MeowRobot import BOT_NAME
+from MeowRobot import BOT_NAME, LOGGER
 from MeowRobot import telethn as tbot
 from MeowRobot.events import register
 from MeowRobot.modules.sql.night_mode_sql import (
@@ -124,7 +124,7 @@ async def job_close():
                 )
             )
         except Exception as e:
-            logger.info(f"Unable To Close Group {warner} - {e}")
+            LOGGER.info(f"Unable To Close Group {warner} - {e}")
 
 
 # Run everyday at 12am
@@ -148,7 +148,7 @@ async def job_open():
                 )
             )
         except Exception as e:
-            logger.info(f"Unable To Open Group {warner.chat_id} - {e}")
+            LOGGER.info(f"Unable To Open Group {warner.chat_id} - {e}")
 
 
 # Run everyday at 06

@@ -17,7 +17,7 @@ from MeowRobot import MONGO_DB_URI, telethn
 
 client = MongoClient()
 client = MongoClient(MONGO_DB_URI)
-db = client["Anonymous"]
+db = client["TheAloneTeam"]
 gbanned = db.gban
 
 

@@ -45,6 +45,7 @@ from MeowRobot import (
     OWNER_ID,
     START_IMG,
     SUPPORT_CHAT,
+    SUPPORT_CHANNEL,
     TOKEN,
     StartTime,
     application,
@@ -57,8 +58,8 @@ from MeowRobot.modules.helper_funcs.misc import paginate_modules
 
 # Global variables to be set in main()
 BOT_ID = 7163382841
-BOT_NAME = "˹AnupriyaTuneBot 🎧˼ ♪"
-BOT_USERNAME = "AnupriyaTuneBot"
+BOT_NAME = "MeowRoBot"
+BOT_USERNAME = "MeowRoBot"
 START_IMG = "https://files.catbox.moe/v00l7e.jpg"
 def get_readable_time(seconds: int) -> str:
     count = 0
@@ -88,8 +89,8 @@ def get_readable_time(seconds: int) -> str:
 PM_START_TEXT = """
 ʜᴇʏ {} , 🥀
 ๏ ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ *{}* ✨
-➻ ᴀɴ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴍᴜsɪᴄ & ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ ʙᴏᴛ  
-ᴅᴇsɪɢɴᴇᴅ ᴛᴏ ᴍᴀᴋᴇ ʏᴏᴜʀ ᴄʜᴀᴛs sᴍᴀʀᴛ, sᴍᴏᴏᴛʜ & ғᴜɴ 🎵
+➻ ᴀɴ ᴀʟʟ-ɪɴ-ᴏɴᴇ ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ ʙᴏᴛ  
+ᴅᴇsɪɢɴᴇᴅ ᴛᴏ ᴍᴀᴋᴇ ʏᴏᴜʀ ᴄʜᴀᴛs sᴍᴀʀᴛ, sᴍᴏᴏᴛʜ & ғᴜɴ 💫
 ๏ ᴛᴀᴘ ᴏɴ ᴛʜᴇ ʜᴇʟᴘ ʙᴜᴛᴛᴏɴ ᴛᴏ ᴇxᴘʟᴏʀᴇ ᴀʟʟ ᴀᴠᴀɪʟᴀʙʟᴇ ᴍᴏᴅᴜʟᴇs & ᴄᴏᴍᴍᴀɴᴅs.
 ➥ ʟᴇᴛ’s ɢᴇᴛ sᴛᴀʀᴛᴇᴅ 💫
 """
@@ -107,15 +108,12 @@ def get_buttons():
             InlineKeyboardButton(text="✨ sᴜᴩᴩᴏʀᴛ ✨", url=f"https://t.me/{SUPPORT_CHAT}"),
         ],
         [
-            InlineKeyboardButton(text="🥀 ᴅᴇᴠᴇʟᴏᴩᴇʀ 🥀", url=f"tg://user?id={OWNER_ID}"),
+            InlineKeyboardButton(text="📢 ᴜᴩᴅᴀᴛᴇs 📢", url=f"https://t.me/{SUPPORT_CHANNEL}"),
             InlineKeyboardButton(text="☁️ sᴏᴜʀᴄᴇ ☁️", callback_data="source_"),
         ],
         [
-            InlineKeyboardButton(text="🎵 ᴍᴜsɪᴄ sᴇᴛᴛɪɴɢs", callback_data="settings_back_helper"),
+            InlineKeyboardButton(text="🥀 ᴅᴇᴠᴇʟᴏᴩᴇʀ 🥀", url=f"tg://user?id={OWNER_ID}"),
             InlineKeyboardButton(text="ʜᴇʟᴩ & ᴄᴏᴍᴍᴀɴᴅs", callback_data="help_back"),
-        ],
-        [
-            InlineKeyboardButton("• ʙᴏᴛ | ʏᴛ-ᴀᴘɪ ɪɴғᴏ •", callback_data="bot_info_data"),
         ],
     ]
 
@@ -390,7 +388,7 @@ async def MeowRoBot_about_callback(update: Update, context: ContextTypes.DEFAULT
                             text="sᴜᴩᴩᴏʀᴛ", url=f"https://t.me/{SUPPORT_CHAT}"
                         ),
                         InlineKeyboardButton(
-                            text="ᴜᴩᴅᴀᴛᴇs", url=f"https://t.me/{SUPPORT_CHAT}"
+                            text="ᴜᴩᴅᴀᴛᴇs", url=f"https://t.me/{SUPPORT_CHANNEL}"
                         ),
                     ],
                     [
@@ -399,7 +397,7 @@ async def MeowRoBot_about_callback(update: Update, context: ContextTypes.DEFAULT
                         ),
                         InlineKeyboardButton(
                             text="ɢɪᴛʜᴜʙ",
-                            url="https://github.com/Oyekanhaa/KanhaMusic",
+                            url="https://github.com/TheAloneTeam/MeowRoBot",
                         ),
                     ],
                     [
@@ -432,10 +430,10 @@ async def Source_about_callback(update: Update, context: ContextTypes.DEFAULT_TY
 ᴀɴᴅ ᴜsɪɴɢ [sǫʟᴀʟᴄʜᴇᴍʏ](https://www.sqlalchemy.org) ᴀɴᴅ [ᴍᴏɴɢᴏ](https://cloud.mongodb.com) ᴀs ᴅᴀᴛᴀʙᴀsᴇ.
 
 
-*ʜᴇʀᴇ ɪs ᴍʏ sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ :* [ɢɪᴛʜᴜʙ](https://github.com/Oyekanhaa/KanhaMusic)
+*ʜᴇʀᴇ ɪs ᴍʏ sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ :* [ɢɪᴛʜᴜʙ](https://github.com/TheAloneTeam/MeowRoBot)
 
 
-{BOT_NAME} ɪs ʟɪᴄᴇɴsᴇᴅ ᴜɴᴅᴇʀ ᴛʜᴇ [ᴍɪᴛ ʟɪᴄᴇɴsᴇ](https://github.com/Oyekanhaa/KanhaMusic/blob/master/LICENSE).
+{BOT_NAME} ɪs ʟɪᴄᴇɴsᴇᴅ ᴜɴᴅᴇʀ ᴛʜᴇ [ᴍɪᴛ ʟɪᴄᴇɴsᴇ](https://github.com/TheAloneTeam/MeowRoBot/blob/master/LICENSE).
 © 2022 - 2023 | [sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ](https://t.me/{SUPPORT_CHAT}), ᴀʟʟ ʀɪɢʜᴛs ʀᴇsᴇʀᴠᴇᴅ.
 """
         await edit_message(

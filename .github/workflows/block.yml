@@ -1,0 +1,35 @@
+name: Block External Pull Requests
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  close-external-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const author = context.payload.sender.login;
+            const authorized = ['TheAloneTeam', 'meowkingm'];
+            if (!authorized.includes(author)) {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `Hello @${author}! External pull requests are currently closed for this repository. If you want to discuss ideas or report issues, please reach out via our support group (https://t.me/TeamAashik).`
+              });
+              await github.rest.pulls.update({
+                pull_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'closed'
+              });
+            }

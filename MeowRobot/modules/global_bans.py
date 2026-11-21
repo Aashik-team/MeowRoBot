@@ -12,7 +12,7 @@ from datetime import datetime
 from io import BytesIO
 
 from telegram import Update
-from telegram.constants import ParseMode, ChatType
+from telegram.constants import ParseMode, ChatType, ChatMemberStatus
 from telegram.error import BadRequest, TelegramError, Forbidden
 from telegram.ext import ContextTypes, CommandHandler, filters, MessageHandler
 from telegram.helpers import mention_html
@@ -23,6 +23,7 @@ from MeowRobot import (
     DEV_USERS,
     DRAGONS,
     EVENT_LOGS,
+    OWNER_ID,
     STRICT_GBAN,
     SUPPORT_CHAT,
     TIGERS,
@@ -423,7 +424,7 @@ async def enforce_gban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot = context.bot
     try:
         member = await update.effective_chat.get_member(bot.id)
-        restrict_permission = member.can_restrict_members
+        restrict_permission = getattr(member, 'can_restrict_members', False) or member.status == ChatMemberStatus.OWNER
     except Exception:
         return
 

@@ -37,7 +37,7 @@ async def repo(_, message: Message):
                     InlineKeyboardButton("ᴅᴇᴠᴇʟᴏᴘᴇʀ", user_id=OWNER_ID),
                     InlineKeyboardButton(
                         "sᴏᴜʀᴄᴇ",
-                        url="https://github.com/TheAloneTeam/AloneMusic",
+                        url="https://github.com/TheAloneTeam/MeowRoBot",
                     ),
                 ]
             ]

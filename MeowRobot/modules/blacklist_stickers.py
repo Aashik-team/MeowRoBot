@@ -15,7 +15,7 @@ from telegram.ext import ContextTypes, CommandHandler, filters, MessageHandler
 from telegram.helpers import mention_markdown
 
 import MeowRobot.modules.sql.blsticker_sql as sql
-from MeowRobot import application
+from MeowRobot import LOGGER, application
 from MeowRobot.modules.connection import connected
 from MeowRobot.modules.disable import DisableAbleCommandHandler
 from MeowRobot.modules.helper_funcs.alternate import send_message

@@ -204,7 +204,7 @@ async def promote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         await send_message(message, "» ʏᴏᴜ ᴅᴏɴ'ᴛ ʜᴀᴠᴇ ᴩᴇʀᴍɪssɪᴏɴs ᴛᴏ ᴀᴅᴅ ɴᴇᴡ ᴀᴅᴍɪɴs ʙᴀʙʏ !")
         return ""
 
-    user_id = await extract_user(message, args)
+    user_id, title = await extract_user_and_text(message, args)
 
     if not user_id:
         await send_message(message,
@@ -256,9 +256,17 @@ async def promote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
             )
         return ""
 
+    if title:
+        title = title.strip()
+        try:
+            await bot.set_chat_administrator_custom_title(chat.id, user_id, title[:16])
+        except Exception:
+            pass
+
+    title_text = f"\nᴛɪᴛʟᴇ : <code>{html.escape(title[:16])}</code>" if title else ""
     await bot.send_message(
         chat.id,
-        f"<b>» ᴩʀᴏᴍᴏᴛɪɴɢ ᴀ ᴜsᴇʀ ɪɴ</b> {chat.title}\n\nᴩʀᴏᴍᴏᴛᴇᴅ : {mention_html(user_member.user.id, user_member.user.first_name)}\nᴩʀᴏᴍᴏᴛᴇʀ : {mention_html(user.id, user.first_name)}",
+        f"<b>» ᴩʀᴏᴍᴏᴛɪɴɢ ᴀ ᴜsᴇʀ ɪɴ</b> {chat.title}\n\nᴩʀᴏᴍᴏᴛᴇᴅ : {mention_html(user_member.user.id, user_member.user.first_name)}\nᴩʀᴏᴍᴏᴛᴇʀ : {mention_html(user.id, user.first_name)}{title_text}",
         parse_mode=ParseMode.HTML,
     )
 
@@ -268,6 +276,8 @@ async def promote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         f"<b>ᴩʀᴏᴍᴏᴛᴇʀ :</b> {mention_html(user.id, user.first_name)}\n"
         f"<b>ᴜsᴇʀ :</b> {mention_html(user_member.user.id, user_member.user.first_name)}"
     )
+    if title:
+        log_message += f"\n<b>ᴛɪᴛʟᴇ :</b> {html.escape(title[:16])}"
 
     return log_message
 
@@ -294,7 +304,7 @@ async def lowpromote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         await send_message(message, "» ʏᴏᴜ ᴅᴏɴ'ᴛ ʜᴀᴠᴇ ᴩᴇʀᴍɪssɪᴏɴs ᴛᴏ ᴀᴅᴅ ɴᴇᴡ ᴀᴅᴍɪɴs ʙᴀʙʏ !")
         return ""
 
-    user_id = await extract_user(message, args)
+    user_id, title = await extract_user_and_text(message, args)
 
     if not user_id:
         await send_message(message,
@@ -337,9 +347,17 @@ async def lowpromote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
             )
         return ""
 
+    if title:
+        title = title.strip()
+        try:
+            await bot.set_chat_administrator_custom_title(chat.id, user_id, title[:16])
+        except Exception:
+            pass
+
+    title_text = f"\nᴛɪᴛʟᴇ : <code>{html.escape(title[:16])}</code>" if title else ""
     await bot.send_message(
         chat.id,
-        f"<b>» ʟᴏᴡ ᴩʀᴏᴍᴏᴛɪɴɢ ᴀ ᴜsᴇʀ ɪɴ </b>{chat.title}\n\n<b>ᴩʀᴏᴍᴏᴛᴇᴅ :</b> {mention_html(user_member.user.id, user_member.user.first_name)}\nᴩʀᴏᴍᴏᴛᴇʀ : {mention_html(user.id, user.first_name)}",
+        f"<b>» ʟᴏᴡ ᴩʀᴏᴍᴏᴛɪɴɢ ᴀ ᴜsᴇʀ ɪɴ </b>{chat.title}\n\n<b>ᴩʀᴏᴍᴏᴛᴇᴅ :</b> {mention_html(user_member.user.id, user_member.user.first_name)}\n<b>ᴩʀᴏᴍᴏᴛᴇʀ :</b> {mention_html(user.id, user.first_name)}{title_text}",
         parse_mode=ParseMode.HTML,
     )
 
@@ -349,6 +367,8 @@ async def lowpromote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         f"<b>ᴩʀᴏᴍᴏᴛᴇʀ :</b> {mention_html(user.id, user.first_name)}\n"
         f"<b>ᴜsᴇʀ :</b> {mention_html(user_member.user.id, user_member.user.first_name)}"
     )
+    if title:
+        log_message += f"\n<b>ᴛɪᴛʟᴇ :</b> {html.escape(title[:16])}"
 
     return log_message
 
@@ -375,7 +395,7 @@ async def fullpromote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str
         await send_message(message, "» ʏᴏᴜ ᴅᴏɴ'ᴛ ʜᴀᴠᴇ ᴩᴇʀᴍɪssɪᴏɴs ᴛᴏ ᴀᴅᴅ ɴᴇᴡ ᴀᴅᴍɪɴs ʙᴀʙʏ !")
         return ""
 
-    user_id = await extract_user(message, args)
+    user_id, title = await extract_user_and_text(message, args)
 
     if not user_id:
         await send_message(message,
@@ -429,9 +449,17 @@ async def fullpromote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str
             )
         return ""
 
+    if title:
+        title = title.strip()
+        try:
+            await bot.set_chat_administrator_custom_title(chat.id, user_id, title[:16])
+        except Exception:
+            pass
+
+    title_text = f"\n<b>ᴛɪᴛʟᴇ :</b> <code>{html.escape(title[:16])}</code>" if title else ""
     await bot.send_message(
         chat.id,
-        f"» ғᴜʟʟᴩʀᴏᴍᴏᴛɪɴɢ ᴀ ᴜsᴇʀ ɪɴ <b>{chat.title}</b>\n\n<b>ᴜsᴇʀ : {mention_html(user_member.user.id, user_member.user.first_name)}</b>\n<b>ᴩʀᴏᴍᴏᴛᴇʀ : {mention_html(user.id, user.first_name)}</b>",
+        f"» ғᴜʟʟᴩʀᴏᴍᴏᴛɪɴɢ ᴀ ᴜsᴇʀ ɪɴ <b>{chat.title}</b>\n\n<b>ᴜsᴇʀ : {mention_html(user_member.user.id, user_member.user.first_name)}</b>\n<b>ᴩʀᴏᴍᴏᴛᴇʀ : {mention_html(user.id, user.first_name)}</b>{title_text}",
         parse_mode=ParseMode.HTML,
     )
 
@@ -441,6 +469,8 @@ async def fullpromote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str
         f"<b>ᴩʀᴏᴍᴏᴛᴇʀ :</b> {mention_html(user.id, user.first_name)}\n"
         f"<b>ᴜsᴇʀ :</b> {mention_html(user_member.user.id, user_member.user.first_name)}"
     )
+    if title:
+        log_message += f"\n<b>ᴛɪᴛʟᴇ :</b> {html.escape(title[:16])}"
 
     return log_message
 
@@ -598,52 +628,70 @@ async def set_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
 
     user_id, title = await extract_user_and_text(message, args)
-    try:
-        user_member = await chat.get_member(user_id)
-    except:
-        return
 
     if not user_id:
-        await send_message(message,
+        await send_message(
+            message,
             "» ɪ ᴅᴏɴ'ᴛ ᴋɴᴏᴡ ᴡʜᴏ's ᴛʜᴀᴛ ᴜsᴇʀ, ɴᴇᴠᴇʀ sᴇᴇɴ ʜɪᴍ ɪɴ ᴀɴʏ ᴏғ ᴛʜᴇ ᴄʜᴀᴛs ᴡʜᴇʀᴇ ɪ ᴀᴍ ᴩʀᴇsᴇɴᴛ !",
         )
         return
 
+    try:
+        user_member = await chat.get_member(user_id)
+    except:
+        await send_message(message, "» ᴛʜᴀᴛ ᴜsᴇʀ ᴅᴏᴇsɴ'ᴛ sᴇᴇᴍ ᴛᴏ ʙᴇ ɪɴ ᴛʜɪs ᴄʜᴀᴛ.")
+        return
+
     if user_member.status == ChatMemberStatus.OWNER:
-        await send_message(message,
+        await send_message(
+            message,
             "» ᴛʜᴀᴛ ᴜsᴇʀ ɪs ᴏᴡɴᴇʀ ᴏғ ᴛʜᴇ ᴄʜᴀᴛ ᴀɴᴅ ɪ ᴅᴏɴ'ᴛ ᴡᴀɴᴛ ᴛᴏ ᴩᴜᴛ ᴍʏsᴇʟғ ɪɴ ᴅᴀɴɢᴇʀ.",
         )
         return
 
     if user_member.status != ChatMemberStatus.ADMINISTRATOR:
-        await send_message(message,
+        await send_message(
+            message,
             "» ɪ ᴄᴀɴ ᴏɴʟʏ sᴇᴛ ᴛɪᴛʟᴇ ғᴏʀ ᴀᴅᴍɪɴs !",
         )
         return
 
     if user_id == bot.id:
-        await send_message(message,
+        await send_message(
+            message,
             "» ɪ ᴄᴀɴ'ᴛ sᴇᴛ ᴛɪᴛʟᴇ ғᴏʀ ᴍʏsᴇʟғ, ᴍʏ ᴏᴡɴᴇʀ ᴅɪᴅɴ'ᴛ ᴛᴏʟᴅ ᴍᴇ ᴛᴏ ᴅᴏ sᴏ.",
         )
         return
 
     if not title:
-        await send_message(message,
-            "» ʏᴏᴜ ᴛʜɪɴᴋ ᴛʜᴀᴛ sᴇᴛᴛɪɴɢ ʙʟᴀɴᴋ ᴛɪᴛʟᴇ ᴡɪʟʟ ᴄʜᴀɴɢᴇ sᴏᴍᴇᴛʜɪɴɢ ?"
+        await send_message(
+            message,
+            "» ᴘʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ᴛɪᴛʟᴇ/ᴛᴀɢ ғᴏʀ ᴛʜᴇ ᴀᴅᴍɪɴ !\n<b>ᴇxᴀᴍᴘʟᴇ :</b> <code>/title @username Admin</code> ᴏʀ ʀᴇᴘʟʏ ᴡɪᴛʜ <code>/title Admin</code>",
+            parse_mode=ParseMode.HTML,
         )
         return
 
+    title = title.strip()
     if len(title) > 16:
-        await send_message(message,
-            "» ᴛʜᴇ ᴛɪᴛʟᴇ ʟᴇɴɢᴛʜ ɪs ʟᴏɴɢᴇʀ ᴛʜᴀɴ 16 ᴡᴏʀᴅs ᴏʀ ᴄʜᴀʀᴀᴄᴛᴇʀs sᴏ ᴛʀᴜɴᴄᴀᴛɪɴɢ ɪᴛ ᴛᴏ 16 ᴡᴏʀᴅs.",
+        await send_message(
+            message,
+            "» ᴛʜᴇ ᴛɪᴛʟᴇ ʟᴇɴɢᴛʜ ɪs ʟᴏɴɢᴇʀ ᴛʜᴀɴ 16 ᴄʜᴀʀᴀᴄᴛᴇʀs sᴏ ᴛʀᴜɴᴄᴀᴛɪɴɢ ɪᴛ ᴛᴏ 16 ᴄʜᴀʀᴀᴄᴛᴇʀs.",
         )
 
     try:
         await bot.set_chat_administrator_custom_title(chat.id, user_id, title[:16])
-    except BadRequest:
-        await send_message(message,
-            "» ᴍᴀʏʙᴇ ᴛʜᴀᴛ ᴜsᴇʀ ɪs ɴᴏᴛ ᴩʀᴏᴍᴏᴛᴇᴅ ʙʏ ᴍᴇ ᴏʀ ᴍᴀʏʙᴇ ʏᴏᴜ sᴇɴᴛ sᴏᴍᴇᴛʜɪɴɢ ᴛʜᴀᴛ ᴄᴀɴ'ᴛ ʙᴇ sᴇᴛ ᴀs ᴛɪᴛʟᴇ."
-        )
+    except BadRequest as err:
+        if "not promoted by" in err.message.lower() or "right" in err.message.lower():
+            await send_message(
+                message,
+                "» ɪ ᴄᴀɴ ᴏɴʟʏ sᴇᴛ ᴛɪᴛʟᴇ ғᴏʀ ᴀᴅᴍɪɴs ᴩʀᴏᴍᴏᴛᴇᴅ ʙʏ ᴍᴇ !",
+            )
+        else:
+            await send_message(
+                message,
+                f"» ғᴀɪʟᴇᴅ ᴛᴏ sᴇᴛ ᴛɪᴛʟᴇ : <code>{err.message}</code>",
+                parse_mode=ParseMode.HTML,
+            )
         return
 
     await bot.send_message(
@@ -733,7 +781,7 @@ async def unpin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         not (getattr(unpinner, 'can_pin_messages', False) or unpinner.status == ChatMemberStatus.OWNER)
         and user.id not in DRAGONS
     ):
-        await send_message(message,
+        await send_message(msg,
             "» ʏᴏᴜ ᴅᴏɴ'ᴛ ʜᴀᴠᴇ ᴩᴇʀᴍɪssɪᴏɴs ᴛᴏ ᴩɪɴ/ᴜɴᴩɪɴ ᴍᴇssᴀɢᴇs ɪɴ ᴛʜɪs ᴄʜᴀᴛ !"
         )
         return ""
@@ -971,11 +1019,11 @@ __help__ = """
  ❍ /pin*:* Pin message (use 'loud').
  ❍ /unpin*:* Unpin current message.
  ❍ /invitelink*:* Gets group invite link.
- ❍ /promote*:* Promote user to admin.
- ❍ /fullpromote*:* Promote with full rights.
- ❍ /lowpromote*:* Promote with limited rights.
+ ❍ /promote [user] [title]*:* Promote user to admin (with optional custom title/tag).
+ ❍ /fullpromote [user] [title]*:* Promote with full rights (with optional title/tag).
+ ❍ /lowpromote [user] [title]*:* Promote with limited rights (with optional title/tag).
  ❍ /demote*:* Demote user to member.
- ❍ /title <title>*:* Set admin title.
+ ❍ /title [user] <title>*:* Set or change admin title/tag (aliases: /settitle, /admintag, /tag).
  ❍ /admincache*:* Refresh admin list.
  ❍ /del*:* Delete replied message.
  ❍ /purge*:* Purge messages between two.
@@ -1010,7 +1058,9 @@ LOW_PROMOTE_HANDLER = DisableAbleCommandHandler(
 )
 DEMOTE_HANDLER = DisableAbleCommandHandler("demote", demote)
 
-SET_TITLE_HANDLER = CommandHandler("title", set_title)
+SET_TITLE_HANDLER = CommandHandler(
+    ["title", "settitle", "admintag", "settag", "tag"], set_title
+)
 ADMIN_REFRESH_HANDLER = CommandHandler(
     ["admincache", "reload", "refresh"],
     refresh_admin,
@@ -1042,6 +1092,10 @@ __command_list__ = [
     "fullpromote",
     "lowpromote",
     "demote",
+    "title",
+    "settitle",
+    "admintag",
+    "tag",
     "admincache",
 ]
 __handlers__ = [

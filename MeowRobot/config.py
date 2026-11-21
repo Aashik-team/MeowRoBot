@@ -24,11 +24,15 @@ class Config(object):
     # Telegraph link of the image which will be shown at start command.
     START_IMG = "https://files.catbox.moe/34xlvu.jpg"
 
-    SUPPORT_CHAT = "teamaashik"  # Your Telegram support group chat username where your users will go and bother you
+    SUPPORT_CHAT = "TeamAashik"  # Your Telegram support group chat username where your users will go and bother you
+    SUPPORT_CHANNEL = "AashikTeam"  # Your Telegram channel username for bot updates
 
     TOKEN = ""  # Get bot token from @BotFather on Telegram
 
     TIME_API_KEY = ""  # Get this value from https://timezonedb.com/api
+
+    CHATBOT_API_URL = "https://chatgp-nine.vercel.app/api/chat"
+    CHATBOT_API_KEY = "ritesh-8179b3a5da99f300be2d50e1e9789729"
 
     OWNER_ID = 7163382841  # User id of your telegram account (Must be integer)
 

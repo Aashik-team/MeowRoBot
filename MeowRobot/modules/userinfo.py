@@ -65,7 +65,7 @@ async def hpmanager(user):
         if not user.username:
             new_hp -= no_by_per(total_hp, 25)
         try:
-            photos = await context.bot.get_user_profile_photos(user.id)
+            photos = await application.bot.get_user_profile_photos(user.id)
             if not photos.photos:
                  new_hp -= no_by_per(total_hp, 25)
         except Exception:

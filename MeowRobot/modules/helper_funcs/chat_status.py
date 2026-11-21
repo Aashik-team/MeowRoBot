@@ -373,7 +373,7 @@ def user_can_ban(func):
             and user not in DRAGONS
             and user not in [777000, 1087968824]
         ):
-            await update.effective_message.reply_text("ðŸ˜¹ Sorry You can't do that")
+            await update.effective_message.reply_text("😿 Sorry You can't do that")
             return ""
         return await func(update, context, *args, **kwargs)
 
@@ -383,6 +383,7 @@ def user_can_ban(func):
 def connection_status(func):
     @wraps(func)
     async def connected_status(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        from MeowRobot.modules.connection import connected
         conn = await connected(
             context.bot,
             update,
@@ -405,9 +406,3 @@ def connection_status(func):
             return await func(update, context, *args, **kwargs)
 
     return connected_status
-
-
-# Workaround for circular import with connection.py
-from MeowRobot.modules import connection
-
-connected = connection.connected

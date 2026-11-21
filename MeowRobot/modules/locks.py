@@ -7,6 +7,7 @@
 # All rights reserved.
 
 import html
+import re
 import unicodedata as ud
 
 from telegram import ChatPermissions, MessageEntity, Update
@@ -36,22 +37,35 @@ def al_detect(unistr):
 
 
 LOCK_TYPES = {
+    "anonchannel": "anonchannel",
     "audio": filters.AUDIO,
-    "voice": filters.VOICE,
-    "document": filters.Document.ALL,
-    "video": filters.VIDEO,
-    "contact": filters.CONTACT,
-    "photo": filters.PHOTO,
-    "url": filters.Entity(MessageEntity.URL)
-    | filters.CaptionEntity(MessageEntity.URL),
     "bots": filters.StatusUpdate.NEW_CHAT_MEMBERS,
+    "button": "button",
+    "command": "command",
+    "contact": filters.CONTACT,
+    "document": filters.Document.ALL,
+    "egame": filters.Dice.ALL,
+    "email": "email",
+    "emojipack": "emojipack",
     "forward": filters.FORWARDED,
     "game": filters.GAME,
-    "location": filters.LOCATION,
-    "egame": filters.Dice.ALL,
-    "rtl": "rtl",
-    "button": "button",
+    "gif": filters.ANIMATION,
     "inline": "inline",
+    "invitelink": "invitelink",
+    "location": filters.LOCATION,
+    "mention": "mention",
+    "phone": "phone",
+    "photo": filters.PHOTO,
+    "poll": "poll",
+    "rtl": "rtl",
+    "spoiler": "spoiler",
+    "sticker": filters.Sticker.ALL,
+    "text": "text",
+    "url": filters.Entity(MessageEntity.URL)
+    | filters.CaptionEntity(MessageEntity.URL),
+    "video": filters.VIDEO,
+    "videonote": "videonote",
+    "voice": filters.VOICE,
 }
 
 LOCK_CHAT_RESTRICTION = {
@@ -69,6 +83,7 @@ LOCK_CHAT_RESTRICTION = {
         "can_send_videos": False,
         "can_send_video_notes": False,
         "can_send_voice_notes": False,
+        "can_manage_topics": False,
     },
     "messages": {"can_send_messages": False},
     "media": {
@@ -79,14 +94,19 @@ LOCK_CHAT_RESTRICTION = {
         "can_send_video_notes": False,
         "can_send_voice_notes": False,
     },
-    "sticker": {"can_send_other_messages": False},
-    "gif": {"can_send_other_messages": False},
-    "poll": {"can_send_polls": False},
+    "audios": {"can_send_audios": False},
+    "documents": {"can_send_documents": False},
+    "photos": {"can_send_photos": False},
+    "videos": {"can_send_videos": False},
+    "videonotes": {"can_send_video_notes": False},
+    "voice": {"can_send_voice_notes": False},
+    "polls": {"can_send_polls": False},
     "other": {"can_send_other_messages": False},
     "previews": {"can_add_web_page_previews": False},
     "info": {"can_change_info": False},
     "invite": {"can_invite_users": False},
     "pin": {"can_pin_messages": False},
+    "topics": {"can_manage_topics": False},
 }
 
 UNLOCK_CHAT_RESTRICTION = {
@@ -102,6 +122,9 @@ UNLOCK_CHAT_RESTRICTION = {
         "can_send_videos": True,
         "can_send_video_notes": True,
         "can_send_voice_notes": True,
+        "can_change_info": True,
+        "can_pin_messages": True,
+        "can_manage_topics": True,
     },
     "messages": {"can_send_messages": True},
     "media": {
@@ -112,14 +135,19 @@ UNLOCK_CHAT_RESTRICTION = {
         "can_send_video_notes": True,
         "can_send_voice_notes": True,
     },
-    "sticker": {"can_send_other_messages": True},
-    "gif": {"can_send_other_messages": True},
-    "poll": {"can_send_polls": True},
+    "audios": {"can_send_audios": True},
+    "documents": {"can_send_documents": True},
+    "photos": {"can_send_photos": True},
+    "videos": {"can_send_videos": True},
+    "videonotes": {"can_send_video_notes": True},
+    "voice": {"can_send_voice_notes": True},
+    "polls": {"can_send_polls": True},
     "other": {"can_send_other_messages": True},
     "previews": {"can_add_web_page_previews": True},
     "info": {"can_change_info": True},
     "invite": {"can_invite_users": True},
     "pin": {"can_pin_messages": True},
+    "topics": {"can_manage_topics": True},
 }
 
 PERM_GROUP = 1
@@ -352,57 +380,162 @@ async def del_lockables(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     message = update.effective_message
     user = update.effective_user
-    if is_approved(chat.id, user.id):
+    if not message or not chat:
         return
+    if user and is_approved(chat.id, user.id):
+        return
+
+    async def _safe_delete(msg):
+        try:
+            await msg.delete()
+        except BadRequest as excp:
+            if excp.message != "Message to delete not found":
+                LOGGER.exception("ERROR in lockables")
+
     for lockable, filter in LOCK_TYPES.items():
+        if not sql.is_locked(chat.id, lockable):
+            continue
+
+        if not await can_delete(chat, context.bot.id):
+            break
+
         if lockable == "rtl":
-            if sql.is_locked(chat.id, lockable) and await can_delete(chat, context.bot.id):
-                if message.caption:
-                    check = al_detect("{}".format(message.caption))
-                    if "ARABIC" in check:
-                        try:
-                            await message.delete()
-                        except BadRequest as excp:
-                            if excp.message == "Message to delete not found":
-                                pass
-                            else:
-                                LOGGER.exception("ERROR in lockables")
-                        break
-                if message.text:
-                    check = al_detect("{}".format(message.text))
-                    if "ARABIC" in check:
-                        try:
-                            await message.delete()
-                        except BadRequest as excp:
-                            if excp.message == "Message to delete not found":
-                                pass
-                            else:
-                                LOGGER.exception("ERROR in lockables")
-                        break
+            if message.caption and "ARABIC" in al_detect(f"{message.caption}"):
+                await _safe_delete(message)
+                break
+            if message.text and "ARABIC" in al_detect(f"{message.text}"):
+                await _safe_delete(message)
+                break
             continue
+
         if lockable == "button":
-            if sql.is_locked(chat.id, lockable) and await can_delete(chat, context.bot.id):
-                if message.reply_markup and message.reply_markup.inline_keyboard:
-                    try:
-                        await message.delete()
-                    except BadRequest as excp:
-                        if excp.message == "Message to delete not found":
-                            pass
-                        else:
-                            LOGGER.exception("ERROR in lockables")
-                    break
+            if message.reply_markup and message.reply_markup.inline_keyboard:
+                await _safe_delete(message)
+                break
             continue
+
         if lockable == "inline":
-            if sql.is_locked(chat.id, lockable) and await can_delete(chat, context.bot.id):
-                if message and message.via_bot:
-                    try:
-                        await message.delete()
-                    except BadRequest as excp:
-                        if excp.message == "Message to delete not found":
-                            pass
-                        else:
-                            LOGGER.exception("ERROR in lockables")
-                    break
+            if message.via_bot:
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "anonchannel":
+            if message.sender_chat and message.sender_chat.id != chat.id:
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "invitelink":
+            text_content = f"{message.text or ''} {message.caption or ''}"
+            if re.search(
+                r"(?:t\.me|telegram\.me|telegram\.dog)/(?:joinchat/|\+)?([a-zA-Z0-9_\-]+)",
+                text_content,
+                re.IGNORECASE,
+            ):
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "poll":
+            if getattr(message, "poll", None) is not None:
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "videonote":
+            if getattr(message, "video_note", None) is not None:
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "spoiler":
+            entities = list(message.entities or []) + list(
+                message.caption_entities or []
+            )
+            if any(
+                getattr(e, "type", None) in (MessageEntity.SPOILER, "spoiler")
+                for e in entities
+            ) or getattr(message, "has_media_spoiler", False):
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "emojipack":
+            entities = list(message.entities or []) + list(
+                message.caption_entities or []
+            )
+            if any(
+                getattr(e, "type", None)
+                in (MessageEntity.CUSTOM_EMOJI, "custom_emoji")
+                for e in entities
+            ):
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "phone":
+            entities = list(message.entities or []) + list(
+                message.caption_entities or []
+            )
+            if any(
+                getattr(e, "type", None)
+                in (MessageEntity.PHONE_NUMBER, "phone_number")
+                for e in entities
+            ):
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "email":
+            entities = list(message.entities or []) + list(
+                message.caption_entities or []
+            )
+            if any(
+                getattr(e, "type", None) in (MessageEntity.EMAIL, "email")
+                for e in entities
+            ):
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "mention":
+            entities = list(message.entities or []) + list(
+                message.caption_entities or []
+            )
+            if any(
+                getattr(e, "type", None)
+                in (
+                    MessageEntity.MENTION,
+                    MessageEntity.TEXT_MENTION,
+                    "mention",
+                    "text_mention",
+                )
+                for e in entities
+            ):
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "command":
+            entities = list(message.entities or [])
+            if any(
+                getattr(e, "type", None)
+                in (MessageEntity.BOT_COMMAND, "bot_command")
+                for e in entities
+            ):
+                await _safe_delete(message)
+                break
+            continue
+
+        if lockable == "text":
+            if message.text and not any(
+                getattr(e, "type", None)
+                in (MessageEntity.BOT_COMMAND, "bot_command")
+                for e in (message.entities or [])
+            ):
+                await _safe_delete(message)
+                break
             continue
 
         if isinstance(filter, filters.BaseFilter):
@@ -410,11 +543,7 @@ async def del_lockables(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             res = False
 
-        if (
-            res
-            and sql.is_locked(chat.id, lockable)
-            and await can_delete(chat, context.bot.id)
-        ):
+        if res:
             if lockable == "bots":
                 new_members = update.effective_message.new_chat_members
                 for new_mem in new_members:
@@ -434,14 +563,7 @@ async def del_lockables(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         )
                         break
             else:
-                try:
-                    await message.delete()
-                except BadRequest as excp:
-                    if excp.message == "Message to delete not found":
-                        pass
-                    else:
-                        LOGGER.exception("ERROR in lockables")
-
+                await _safe_delete(message)
                 break
 
 
@@ -452,25 +574,11 @@ async def build_lock_message(chat_id):
     permslist = []
     if locks:
         res += "*" + "These are the current locks in this Chat:" + "*"
-        locklist.append("sticker = `{}`".format(locks.sticker))
-        locklist.append("audio = `{}`".format(locks.audio))
-        locklist.append("voice = `{}`".format(locks.voice))
-        locklist.append("document = `{}`".format(locks.document))
-        locklist.append("video = `{}`".format(locks.video))
-        locklist.append("contact = `{}`".format(locks.contact))
-        locklist.append("photo = `{}`".format(locks.photo))
-        locklist.append("gif = `{}`".format(locks.gif))
-        locklist.append("url = `{}`".format(locks.url))
-        locklist.append("bots = `{}`".format(locks.bots))
-        locklist.append("forward = `{}`".format(locks.forward))
-        locklist.append("game = `{}`".format(locks.game))
-        locklist.append("location = `{}`".format(locks.location))
-        locklist.append("rtl = `{}`".format(locks.rtl))
-        locklist.append("button = `{}`".format(locks.button))
-        locklist.append("egame = `{}`".format(locks.egame))
-        locklist.append("inline = `{}`".format(locks.inline))
+        for lockable in sorted(LOCK_TYPES.keys()):
+            val = getattr(locks, lockable, False)
+            locklist.append(f"{lockable} = `{val}`")
 
-    chat = await context.bot.get_chat(chat_id)
+    chat = await application.bot.get_chat(chat_id)
     permissions = chat.permissions
     permslist.append("messages = `{}`".format(permissions.can_send_messages))
     permslist.append("audios = `{}`".format(permissions.can_send_audios))
@@ -479,17 +587,16 @@ async def build_lock_message(chat_id):
     permslist.append("videos = `{}`".format(permissions.can_send_videos))
     permslist.append("video_notes = `{}`".format(permissions.can_send_video_notes))
     permslist.append("voice_notes = `{}`".format(permissions.can_send_voice_notes))
-    permslist.append("poll = `{}`".format(permissions.can_send_polls))
+    permslist.append("polls = `{}`".format(permissions.can_send_polls))
     permslist.append("other = `{}`".format(permissions.can_send_other_messages))
     permslist.append("previews = `{}`".format(permissions.can_add_web_page_previews))
     permslist.append("info = `{}`".format(permissions.can_change_info))
     permslist.append("invite = `{}`".format(permissions.can_invite_users))
     permslist.append("pin = `{}`".format(permissions.can_pin_messages))
+    permslist.append("topics = `{}`".format(getattr(permissions, "can_manage_topics", None)))
 
     if locklist:
-        # Ordering lock list
         locklist.sort()
-        # Building lock list string
         for x in locklist:
             res += "\n • {}".format(x)
     res += "\n\n*" + "These are the current chat permissions:" + "*"
@@ -589,12 +696,40 @@ telegram world; the bot will automatically delete them!
  ❍ /lock <type>*:* Lock items of a certain type (not available in private)
  ❍ /unlock <type>*:* Unlock items of a certain type (not available in private)
  ❍ /locks*:* The current list of locks in this chat.
- 
-Locks can be used to restrict a group's users.
-eg:
-Locking urls will auto-delete all messages with urls, locking stickers will restrict all \
-non-admin users from sending stickers, etc.
-Locking bots will stop non-admins from adding bots to the chat.
+
+*Available Lock Types:*
+ • `anonchannel`: Messages sent by anonymous channels
+ • `audio`: Audio files
+ • `bots`: Stop bots from being added by non-admins
+ • `button`: Messages containing inline buttons
+ • `command`: Bot commands (/start, etc.)
+ • `contact`: Shared contacts
+ • `document`: Documents / files
+ • `egame`: Dice, basketball, slot games
+ • `email`: Email addresses
+ • `emojipack`: Custom / animated emojis
+ • `forward`: Forwarded messages
+ • `game`: HTML5 games
+ • `gif`: GIFs / Animations
+ • `inline`: Messages sent via inline bots
+ • `invitelink`: Telegram group / channel invite links
+ • `location`: Location sharing
+ • `mention`: @mentions and text mentions
+ • `phone`: Phone numbers
+ • `photo`: Photos / images
+ • `poll`: Polls
+ • `rtl`: Right-to-Left (Arabic / Persian) text
+ • `spoiler`: Spoilers in text or media captions
+ • `sticker`: Stickers (standard, animated, video)
+ • `text`: Plain text messages
+ • `url`: Links / URLs
+ • `video`: Videos
+ • `videonote`: Round video notes
+ • `voice`: Voice notes
+
+*Chat Permission Restrictions:*
+ • `all`: Lock all chat permissions
+ • `messages`, `media`, `photos`, `videos`, `audios`, `documents`, `voice`, `videonotes`, `polls`, `other`, `previews`, `info`, `invite`, `pin`, `topics`
 
 *Note:*
  • Unlocking permission *info* will allow members (non-admins) to change the group information, such as the description or the group name

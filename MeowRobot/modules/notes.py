@@ -15,7 +15,7 @@ from telegram import (
     InlineKeyboardMarkup,
     Update,
 )
-from telegram.constants import ChatType, ParseMode
+from telegram.constants import ChatType, ParseMode, ChatMemberStatus
 from telegram.error import BadRequest
 from telegram.ext import (
     ContextTypes,

@@ -15,7 +15,7 @@ from telegram.ext import ContextTypes, CommandHandler
 from telegram.helpers import mention_html
 
 import MeowRobot.modules.sql.blacklistusers_sql as sql
-from MeowRobot import DEMONS, DEV_USERS, DRAGONS, OWNER_ID, TIGERS, WOLVES, application
+from MeowRobot import BOT_ID, DEMONS, DEV_USERS, DRAGONS, OWNER_ID, TIGERS, WOLVES, application
 from MeowRobot.modules.helper_funcs.chat_status import dev_plus
 from MeowRobot.modules.helper_funcs.extraction import (
     extract_user,
@@ -143,7 +143,7 @@ def __user_info__(user_id):
     text = "Blacklisted: <b>{}</b>"
     if user_id in [777000, 1087968824]:
         return ""
-    if user_id == context.bot.id:
+    if user_id == BOT_ID:
         return ""
     if int(user_id) in list(DRAGONS) + list(TIGERS) + list(WOLVES):
         return ""

@@ -227,22 +227,14 @@ async def export_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
     curr_restr = locksql.get_restr(chat_id)
 
     if curr_locks:
-        locked_lock = {
-            "sticker": curr_locks.sticker,
-            "audio": curr_locks.audio,
-            "voice": curr_locks.voice,
-            "document": curr_locks.document,
-            "video": curr_locks.video,
-            "contact": curr_locks.contact,
-            "photo": curr_locks.photo,
-            "gif": curr_locks.gif,
-            "url": curr_locks.url,
-            "bots": curr_locks.bots,
-            "forward": curr_locks.forward,
-            "game": curr_locks.game,
-            "location": curr_locks.location,
-            "rtl": curr_locks.rtl,
-        }
+        lock_fields = [
+            "sticker", "audio", "voice", "document", "video", "contact",
+            "photo", "gif", "url", "bots", "forward", "game", "location",
+            "rtl", "button", "egame", "inline", "videonote", "poll",
+            "spoiler", "emojipack", "invitelink", "command", "phone",
+            "email", "anonchannel", "text", "mention",
+        ]
+        locked_lock = {k: getattr(curr_locks, k, False) for k in lock_fields}
     else:
         locked_lock = {}
 

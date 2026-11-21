@@ -84,9 +84,9 @@ async def telegraph_upload(_, message):
             os.remove(path)
 
 
-mod_name = "Tɢ-M"
+__mod_name__ = "Tɢ-M"
 
-help = """
+__help__ = """
 ❍ /tgm : Reply to media to get direct link
 
 Supports:

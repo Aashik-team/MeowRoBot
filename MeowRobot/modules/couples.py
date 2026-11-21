@@ -10,7 +10,7 @@ from MeowRobot import pbot as app
 from MeowRobot import pbot
 from MeowRobot.utils.fonts import Fonts, font
 
-__module__ = "𝐇ᴜsʙᴀɴᴅ 𝐖ɪғᴇ💞"
+__mod_name__ = "𝐇ᴜsʙᴀɴᴅ 𝐖ɪғᴇ💞"
 __help__ = """
 **Husband & Wife of the Day 💞**
 

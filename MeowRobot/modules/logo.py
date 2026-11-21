@@ -263,7 +263,7 @@ async def lego(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user.id != OWNER_ID and not args:
         await message.reply_text(
-            "ɢɪᴠᴇ sᴏᴍᴇ ᴛᴇxᴛ ᴛᴏ ᴄʀᴇᴀᴛᴇ ʟᴏɢᴏ !\nExample : `/logo <ANONYMOUS>`"
+            "ɢɪᴠᴇ sᴏᴍᴇ ᴛᴇxᴛ ᴛᴏ ᴄʀᴇᴀᴛᴇ ʟᴏɢᴏ !\nExample : `/logo <TheAloneTeam>`"
         )
         return
 

@@ -35,6 +35,17 @@ class Permissions(BASE):
     button = Column(Boolean, default=False)
     egame = Column(Boolean, default=False)
     inline = Column(Boolean, default=False)
+    videonote = Column(Boolean, default=False)
+    poll = Column(Boolean, default=False)
+    spoiler = Column(Boolean, default=False)
+    emojipack = Column(Boolean, default=False)
+    invitelink = Column(Boolean, default=False)
+    command = Column(Boolean, default=False)
+    phone = Column(Boolean, default=False)
+    email = Column(Boolean, default=False)
+    anonchannel = Column(Boolean, default=False)
+    text = Column(Boolean, default=False)
+    mention = Column(Boolean, default=False)
 
     def __init__(self, chat_id):
         self.chat_id = str(chat_id)  # ensure string
@@ -55,6 +66,17 @@ class Permissions(BASE):
         self.button = False
         self.egame = False
         self.inline = False
+        self.videonote = False
+        self.poll = False
+        self.spoiler = False
+        self.emojipack = False
+        self.invitelink = False
+        self.command = False
+        self.phone = False
+        self.email = False
+        self.anonchannel = False
+        self.text = False
+        self.mention = False
 
     def __repr__(self):
         return "<Permissions for %s>" % self.chat_id
@@ -119,40 +141,8 @@ def update_lock(chat_id, lock_type, locked):
         if not curr_perm:
             curr_perm = init_permissions(chat_id)
 
-        if lock_type == "audio":
-            curr_perm.audio = locked
-        elif lock_type == "voice":
-            curr_perm.voice = locked
-        elif lock_type == "contact":
-            curr_perm.contact = locked
-        elif lock_type == "video":
-            curr_perm.video = locked
-        elif lock_type == "document":
-            curr_perm.document = locked
-        elif lock_type == "photo":
-            curr_perm.photo = locked
-        elif lock_type == "sticker":
-            curr_perm.sticker = locked
-        elif lock_type == "gif":
-            curr_perm.gif = locked
-        elif lock_type == "url":
-            curr_perm.url = locked
-        elif lock_type == "bots":
-            curr_perm.bots = locked
-        elif lock_type == "forward":
-            curr_perm.forward = locked
-        elif lock_type == "game":
-            curr_perm.game = locked
-        elif lock_type == "location":
-            curr_perm.location = locked
-        elif lock_type == "rtl":
-            curr_perm.rtl = locked
-        elif lock_type == "button":
-            curr_perm.button = locked
-        elif lock_type == "egame":
-            curr_perm.egame = locked
-        elif lock_type == "inline":
-            curr_perm.inline = locked
+        if hasattr(curr_perm, lock_type):
+            setattr(curr_perm, lock_type, locked)
 
         SESSION.add(curr_perm)
         SESSION.commit()
@@ -188,40 +178,7 @@ def is_locked(chat_id, lock_type):
     if not curr_perm:
         return False
 
-    elif lock_type == "sticker":
-        return curr_perm.sticker
-    elif lock_type == "photo":
-        return curr_perm.photo
-    elif lock_type == "audio":
-        return curr_perm.audio
-    elif lock_type == "voice":
-        return curr_perm.voice
-    elif lock_type == "contact":
-        return curr_perm.contact
-    elif lock_type == "video":
-        return curr_perm.video
-    elif lock_type == "document":
-        return curr_perm.document
-    elif lock_type == "gif":
-        return curr_perm.gif
-    elif lock_type == "url":
-        return curr_perm.url
-    elif lock_type == "bots":
-        return curr_perm.bots
-    elif lock_type == "forward":
-        return curr_perm.forward
-    elif lock_type == "game":
-        return curr_perm.game
-    elif lock_type == "location":
-        return curr_perm.location
-    elif lock_type == "rtl":
-        return curr_perm.rtl
-    elif lock_type == "button":
-        return curr_perm.button
-    elif lock_type == "egame":
-        return curr_perm.egame
-    elif lock_type == "inline":
-        return curr_perm.inline
+    return bool(getattr(curr_perm, lock_type, False))
 
 
 def is_restr_locked(chat_id, lock_type):

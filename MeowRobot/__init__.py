@@ -60,12 +60,15 @@ if ENV:
         "START_IMG", "https://files.catbox.moe/34xlvu.jpg"
     )
     STRICT_GBAN = bool(os.environ.get("STRICT_GBAN", True))
-    SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "teamaashik")
+    SUPPORT_CHAT = os.environ.get("SUPPORT_CHAT", "TeamAashik")
+    SUPPORT_CHANNEL = os.environ.get("SUPPORT_CHANNEL", "AashikTeam")
     NSFW_LOG_CHANNEL = os.environ.get("NSFW_LOG_CHANNEL", None)
     NSFW_STORAGE = os.environ.get("NSFW_STORAGE", None)
     TEMP_DOWNLOAD_DIRECTORY = os.environ.get("TEMP_DOWNLOAD_DIRECTORY", "./")
     TOKEN = os.environ.get("TOKEN", None)
     TIME_API_KEY = os.environ.get("TIME_API_KEY", None)
+    CHATBOT_API_URL = os.environ.get("CHATBOT_API_URL", "https://chatgp-nine.vercel.app/api/chat")
+    CHATBOT_API_KEY = os.environ.get("CHATBOT_API_KEY", "ritesh-8179b3a5da99f300be2d50e1e9789729")
     WORKERS = int(os.environ.get("WORKERS", 8))
 
     try:
@@ -117,11 +120,14 @@ else:
     START_IMG = Config.START_IMG
     STRICT_GBAN = Config.STRICT_GBAN
     SUPPORT_CHAT = Config.SUPPORT_CHAT
+    SUPPORT_CHANNEL = getattr(Config, "SUPPORT_CHANNEL", "AashikTeam")
     NSFW_LOG_CHANNEL = Config.NSFW_LOG_CHANNEL
     NSFW_STORAGE = Config.NSFW_STORAGE
     TEMP_DOWNLOAD_DIRECTORY = Config.TEMP_DOWNLOAD_DIRECTORY
     TOKEN = Config.TOKEN
     TIME_API_KEY = Config.TIME_API_KEY
+    CHATBOT_API_URL = getattr(Config, "CHATBOT_API_URL", "https://chatgp-nine.vercel.app/api/chat")
+    CHATBOT_API_KEY = getattr(Config, "CHATBOT_API_KEY", "ritesh-8179b3a5da99f300be2d50e1e9789729")
     WORKERS = Config.WORKERS
 
     try:
@@ -181,5 +187,5 @@ pbot = Client("MeowRobot", api_id=API_ID, api_hash=API_HASH, bot_token=TOKEN)
 
 # These will be set in main()
 BOT_ID = 7163382841
-BOT_NAME = "˹𝙈𝙚𝙤𝙬 ✘ 𝙍𝙤𝙗𝙤𝙩 ✘ 𝙈𝙪𝙨𝙞𝙘 🎧˼ ♪"
-BOT_USERNAME = "MeowSecurityBot"
+BOT_NAME = "MeowRoBot"
+BOT_USERNAME = "MeowRoBot"
