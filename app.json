@@ -56,7 +56,7 @@
       "MONGO_DB_URI": {
          "description": "Required for database connections.",
          "required": true,
-         "value": "mongodb+srv://Anupriya:A@cluster0.oc3mkqe.mongodb.net/?appName=Cluster0"
+         "value": ""
       },
       "OWNER_ID": {
          "description": "Your user ID as an integer.",
@@ -86,7 +86,7 @@
       "CHATBOT_API_URL": {
          "description": "Chatbot API endpoint URL",
          "required": false,
-         "value": "https://chatgp-nine.vercel.app/api/chat"
+         "value": "https://chatbot.riteshyt.in/api/chat"
       },
       "CHATBOT_API_KEY": {
          "description": "API key for chatbot",
@@ -96,7 +96,7 @@
       "TOKEN": {
          "description": "Get bot token from @BotFather on TG",
          "required": true,
-         "value": "8868360021:AAFAiNuEJT6cMUP35XrIDcO-5SCg1zvjMHY"
+         "value": ""
       }
    }
 }
