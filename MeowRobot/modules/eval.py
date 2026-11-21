@@ -120,7 +120,6 @@ async def do(func, bot, update: Update):
 async def clear_locals(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot = context.bot
     log_input(update)
-    global namespaces
     if update.message.chat_id in namespaces:
         del namespaces[update.message.chat_id]
     await send("Cleared locals.", bot, update)

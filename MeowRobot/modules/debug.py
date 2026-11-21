@@ -40,7 +40,6 @@ async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @telethn.on(events.NewMessage(pattern="[/!].*"))
 async def i_do_nothing_yes(event):
-    global DEBUG_MODE
     if DEBUG_MODE:
         log_entry = f"- {event.sender_id} ({event.chat_id}) : {event.text} | {datetime.datetime.now()}\n"
         with open("updates.txt", "a+") as f:
