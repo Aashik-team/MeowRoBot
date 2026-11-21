@@ -18,7 +18,7 @@ from pyrogram.enums import ChatMemberStatus, ChatAction
 from MeowRobot import pbot as app, DRAGONS, DEV_USERS, LOGGER
 from MeowRobot.utils.mongo import chatbot_db as DB
 
-API_URL = os.environ.get("CHATBOT_API_URL", "https://chatgp-nine.vercel.app/api/chat")
+API_URL = os.environ.get("CHATBOT_API_URL", "https://chatbot.riteshyt.in/api/chat")
 API_KEY = os.environ.get("CHATBOT_API_KEY", "ritesh-8179b3a5da99f300be2d50e1e9789729")
 
 # Store last 30 messages per chat to provide conversation context
