@@ -20,7 +20,7 @@
 <p align="center">
   <a href="https://github.com/TheAloneTeam/MeowRoBot/stargazers"><img src="https://img.shields.io/github/stars/TheAloneTeam/MeowRoBot?color=blue&logo=github&style=for-the-badge" alt="Stars"/></a>
   <a href="https://github.com/TheAloneTeam/MeowRoBot/network/members"><img src="https://img.shields.io/github/forks/TheAloneTeam/MeowRoBot?color=blue&logo=github&style=for-the-badge" alt="Forks"/></a>
-  <a href="https://github.com/TheAloneTeam/MeowRoBot/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blueviolet?style=for-the-badge" alt="License"/></a>
+  <a href="https://github.com/TheAloneTeam/MeowRoBot/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blueviolet?style=for-the-badge" alt="License"/></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-skyblue?style=for-the-badge&logo=python" alt="Python"/></a>
 </p>
 
@@ -104,4 +104,4 @@ python3 -m MeowRobot
 - **[Hamker Cat](https://github.com/TheHamkerCat)** — Modular concepts
 - All contributors who help maintain and improve this project!
 
-This project is open-source under the **[MIT License](https://github.com/TheAloneTeam/MeowRoBot/blob/main/LICENSE)**.
+This project is open-source under the **[MIT License](https://github.com/TheAloneTeam/MeowRoBot/blob/master/LICENSE)**.
