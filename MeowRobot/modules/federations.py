@@ -16,14 +16,14 @@ __help__ = """
 Manage shared bans across multiple connected groups. When a spammer or scammer is federation-banned (`/fban`), they are banned across all connected chats!
 
 *Commands:*  
-❂ `/newfed <Fed Name>` — Create a new federation (Owner only)  
-❂ `/delfed <Fed ID>` — Delete a federation  
-❂ `/joinfed <Fed ID>` — Connect your group to a federation (Group Admin only)  
+❂ `/newfed [Fed Name]` — Create a new federation (Owner only)  
+❂ `/delfed [Fed ID]` — Delete a federation  
+❂ `/joinfed [Fed ID]` — Connect your group to a federation (Group Admin only)  
 ❂ `/leavefed` — Disconnect your group from the federation  
 ❂ `/chatfed` — View current federation connected to this group  
-❂ `/fedinfo <Fed ID>` — View federation details, owner, and banned count  
-❂ `/fban <user> <reason>` — Federation-ban a user across all connected groups  
-❂ `/unfban <user>` — Remove federation ban for a user  
+❂ `/fedinfo [Fed ID]` — View federation details, owner, and banned count  
+❂ `/fban [user] [reason]` — Federation-ban a user across all connected groups  
+❂ `/unfban [user]` — Remove federation ban for a user  
 """
 
 fed_col = db["federations"]
@@ -42,7 +42,7 @@ async def is_group_admin(chat_id: int, user_id: int) -> bool:
 @bot.on_message(filters.command("newfed") & ~filters.forwarded)
 async def new_fed(_, m: types.Message):
     if len(m.command) < 2:
-        return await m.reply_text(font("❌ Usage: `/newfed <Federation Name>`"))
+        return await m.reply_text(font("❌ Usage: `/newfed [Federation Name]`"))
 
     fed_name = m.text.split(maxsplit=1)[1].strip()
     fed_id = str(uuid.uuid4())
@@ -66,7 +66,7 @@ async def new_fed(_, m: types.Message):
 @bot.on_message(filters.command("delfed") & ~filters.forwarded)
 async def del_fed(_, m: types.Message):
     if len(m.command) < 2:
-        return await m.reply_text(font("❌ Usage: `/delfed <Fed ID>`"))
+        return await m.reply_text(font("❌ Usage: `/delfed [Fed ID]`"))
 
     fed_id = m.command[1].strip()
     fed = await fed_col.find_one({"fed_id": fed_id})
@@ -89,7 +89,7 @@ async def join_fed(_, m: types.Message):
         return await m.reply_text(font("❌ Only group admins can connect to a federation."))
 
     if len(m.command) < 2:
-        return await m.reply_text(font("❌ Usage: `/joinfed <Fed ID>`"))
+        return await m.reply_text(font("❌ Usage: `/joinfed [Fed ID]`"))
 
     fed_id = m.command[1].strip()
     fed = await fed_col.find_one({"fed_id": fed_id})
@@ -138,7 +138,7 @@ async def chat_fed(_, m: types.Message):
 @bot.on_message(filters.command("fedinfo") & ~filters.forwarded)
 async def fed_info(_, m: types.Message):
     if len(m.command) < 2:
-        return await m.reply_text(font("❌ Usage: `/fedinfo <Fed ID>`"))
+        return await m.reply_text(font("❌ Usage: `/fedinfo [Fed ID]`"))
 
     fed_id = m.command[1].strip()
     fed = await fed_col.find_one({"fed_id": fed_id})
@@ -194,7 +194,7 @@ async def fban_user(_, m: types.Message):
         if len(m.command) > 2:
             reason = m.text.split(maxsplit=2)[2]
     else:
-        return await m.reply_text(font("❌ Usage: `/fban <user> [reason]` (or reply)"))
+        return await m.reply_text(font("❌ Usage: `/fban [user] [reason]` (or reply)"))
 
     if target_user.id in DEV_LIST:
         return await m.reply_text(font("❌ You cannot FBan a bot developer!"))
@@ -255,7 +255,7 @@ async def unfban_user(_, m: types.Message):
         except Exception:
             return await m.reply_text(font("❌ User not found."))
     else:
-        return await m.reply_text(font("❌ Usage: `/unfban <user>` (or reply)"))
+        return await m.reply_text(font("❌ Usage: `/unfban [user]` (or reply)"))
 
     await fed_bans_col.delete_one({"fed_id": fed_id, "user_id": target_user.id})
 

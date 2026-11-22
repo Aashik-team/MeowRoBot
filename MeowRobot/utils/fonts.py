@@ -2371,4 +2371,12 @@ class Fonts:
 import re
 
 def font(text: str) -> str:
-    return text or ""
+    if not text:
+        return ""
+    # In Pyrogram, angle brackets <...> inside markdown code fences (`...`)
+    # get parsed into HTML tags and break entity offset calculations (400 ENTITY_BOUNDS_INVALID).
+    # We safely convert < and > inside backticks to [ and ].
+    def _sanitize(m):
+        return m.group(0).replace("<", "[").replace(">", "]")
+
+    return re.sub(r"`[^`]+`", _sanitize, text)
