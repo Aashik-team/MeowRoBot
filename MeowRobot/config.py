@@ -5,6 +5,7 @@
 # Please see < https://github.com/TheAloneTeam/MeowRobot/blob/master/LICENSE >
 #
 # All rights reserved.
+#
 
 class Config(object):
     LOGGER = True
