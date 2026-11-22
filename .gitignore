@@ -17,6 +17,7 @@
 *.session
 *.session-journal
 *.db
+downloads/
 verify_fix.py
 log.txt
 .env

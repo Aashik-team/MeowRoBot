@@ -45,3 +45,4 @@ edge-tts
 img2pdf
 yt-dlp
 youtube-search-python
+rembg[cpu]
