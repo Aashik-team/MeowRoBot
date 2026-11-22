@@ -43,3 +43,5 @@ SpeechRecognition
 pydub
 edge-tts
 img2pdf
+yt-dlp
+youtube-search-python
