@@ -31,7 +31,7 @@ class Config(object):
 
     TIME_API_KEY = ""  # Get this value from https://timezonedb.com/api
 
-    CHATBOT_API_URL = "https://chatgp-nine.vercel.app/api/chat"
+    CHATBOT_API_URL = "https://chatbot.riteshyt.in/api/chat"
     CHATBOT_API_KEY = "ritesh-8179b3a5da99f300be2d50e1e9789729"
 
     OWNER_ID = 7163382841  # User id of your telegram account (Must be integer)

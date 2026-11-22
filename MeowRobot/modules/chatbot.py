@@ -13,7 +13,6 @@ from io import BytesIO
 from collections import OrderedDict
 
 import requests
-from functools import partial
 
 try:
     from gtts import gTTS
@@ -37,7 +36,8 @@ from pyrogram.enums import ChatMemberStatus, ChatAction
 from MeowRobot import pbot as app, DRAGONS, DEV_USERS, LOGGER
 from MeowRobot.utils.mongo import chatbot_db as DB
 
-API = os.environ.get("CHATBOT_API_URL", "https://aivya.thechiku.workers.dev/chat")
+API_URL = os.environ.get("CHATBOT_API_URL", "https://chatbot.riteshyt.in/api/chat")
+API_KEY = os.environ.get("CHATBOT_API_KEY", "ritesh-8179b3a5da99f300be2d50e1e9789729")
 TRIGGERS = ["hi", "hello", "hey", "baby", "Meow"]
 
 class LRUCache:
@@ -141,25 +141,46 @@ def text_to_speech(text: str) -> BytesIO:
             return mp3_fp
     except Exception as e:
         LOGGER.error(f"Pydub/ffmpeg error during TTS: {e}")
-        # Fallback to mp3 just in case, though Telegram might reject it
         mp3_fp.name = "voice.mp3"
         return mp3_fp
 
 async def fetch_chat_response(payload: dict) -> dict:
     loop = asyncio.get_event_loop()
-    
-    for attempt in range(3):
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+    max_retries = 3
+
+    for attempt in range(max_retries):
         try:
-            # Run requests.post in executor to avoid blocking the async loop
-            response = await loop.run_in_executor(None, partial(requests.post, API, json=payload, timeout=15.0))
+            response = await loop.run_in_executor(
+                None,
+                lambda: requests.post(API_URL, json=payload, headers=headers, timeout=60)
+            )
             if response.status_code == 200:
-                return response.json()
-            elif response.status_code in [429, 500, 502, 503]:
-                await asyncio.sleep(1.0 * (attempt + 1))
+                data = response.json()
+                reply = data.get("response") or data.get("reply") or data.get("message")
+                if isinstance(reply, dict):
+                    reply = reply.get("content", "")
+                if reply and "503" not in reply and "系统通知" not in reply:
+                    return {"response": reply}
+                elif attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                    continue
+            elif response.status_code in [429, 500, 502, 503] and attempt < max_retries - 1:
+                await asyncio.sleep(2)
+                continue
             else:
-                return None
+                break
+        except (requests.exceptions.RequestException, asyncio.TimeoutError):
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2)
+                continue
+            break
         except Exception as e:
-            await asyncio.sleep(1.0 * (attempt + 1))
+            LOGGER.error(f"Chatbot request error: {e}")
+            break
     return None
 
 async def transcribe_voice(file_path: str) -> str:
@@ -170,14 +191,12 @@ async def transcribe_voice(file_path: str) -> str:
             return ""
         wav_path = file_path + ".wav"
         try:
-            # Convert OGG to WAV using pydub (requires ffmpeg installed on host)
             audio = AudioSegment.from_ogg(file_path)
             audio.export(wav_path, format="wav")
             
             recognizer = sr.Recognizer()
             with sr.AudioFile(wav_path) as source:
                 audio_data = recognizer.record(source)
-                # Use Google STT with hi-IN language to catch both Hindi and English
                 text = recognizer.recognize_google(audio_data, language="hi-IN")
             
             return text
@@ -229,7 +248,7 @@ async def chatbot_handler(_, message: Message):
         is_trigger = any(t in text_lower for t in TRIGGERS)
         is_reply_to_bot = (message.reply_to_message and message.reply_to_message.from_user and
                            message.reply_to_message.from_user.is_self)
-        is_mentioned = app.me and app.me.username and (f"@{app.me.username.lower()}" in text_lower) # basic mention check
+        is_mentioned = app.me and app.me.username and (f"@{app.me.username.lower()}" in text_lower)
 
         if not (is_trigger or is_reply_to_bot or is_mentioned):
             return
@@ -255,16 +274,19 @@ async def chatbot_handler(_, message: Message):
         history = history[-HISTORY_LIMIT:]
     chat_histories.put(chat_id, history)
 
+    history_str = "\n".join([f"[{m['role']}]: {m['content']}" for m in history])
+    formatted_prompt = f"System: {prompt}\n\nRecent Chat Context:\n{history_str}\n\nUser: {input_text}\nAssistant:"
+
     messages_payload = [{"role": "system", "content": prompt}] + history
 
     payload = {
         "messages": messages_payload,
-        "prompt": f"System: {prompt}\nUser: {input_text}\nAssistant:" # Some endpoints need 'prompt'
+        "prompt": formatted_prompt
     }
 
     # Decide if we send a voice note this time. 
     # If explicitly enabled, always True. 
-    # If the user sent a voice message, we definitely reply with a voice message to match their energy.
+    # If the user sent a voice message, reply with a voice message.
     # Otherwise, give a 15% random chance in normal mode to keep it natural.
     if message.voice:
         should_send_voice = True
@@ -280,7 +302,7 @@ async def chatbot_handler(_, message: Message):
     try:
         data = await fetch_chat_response(payload)
         if data:
-            reply = data.get("reply") or data.get("message") or data.get("response")
+            reply = data.get("response") or data.get("reply") or data.get("message")
             if isinstance(reply, dict):
                 reply = reply.get("content", "")
             if reply:
@@ -303,7 +325,7 @@ async def chatbot_handler(_, message: Message):
                         elif lang == "css": ext = ".css"
                         elif lang == "json": ext = ".json"
                         elif lang in ("cpp", "c++"): ext = ".cpp"
-                        elif lang == "sh" or lang == "bash": ext = ".sh"
+                        elif lang in ("sh", "bash"): ext = ".sh"
 
                         filename = f"code_snippet{ext}"
                         file_obj = BytesIO(code.strip().encode('utf-8'))
@@ -314,15 +336,14 @@ async def chatbot_handler(_, message: Message):
                         reply = reply.replace(original_block, f"**[Long code block sent as file: {filename}]**")
 
                 if reply.strip():
-                    if should_send_voice and not code_blocks and gTTS: # Only send voice if there's no code block and gTTS available
+                    if should_send_voice and not code_blocks and gTTS:
                         try:
-                            # Generate TTS asynchronously to avoid blocking
                             loop = asyncio.get_event_loop()
                             voice_fp = await loop.run_in_executor(None, text_to_speech, reply)
                             await message.reply_voice(voice=voice_fp)
                         except Exception as e:
                             LOGGER.error(f"TTS error: {e}")
-                            await message.reply_text(reply) # Fallback to text
+                            await message.reply_text(reply)
                     else:
                         await message.reply_text(reply)
 

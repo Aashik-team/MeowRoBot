@@ -67,7 +67,7 @@ if ENV:
     TEMP_DOWNLOAD_DIRECTORY = os.environ.get("TEMP_DOWNLOAD_DIRECTORY", "./")
     TOKEN = os.environ.get("TOKEN", None)
     TIME_API_KEY = os.environ.get("TIME_API_KEY", None)
-    CHATBOT_API_URL = os.environ.get("CHATBOT_API_URL", "https://chatgp-nine.vercel.app/api/chat")
+    CHATBOT_API_URL = os.environ.get("CHATBOT_API_URL", "https://chatbot.riteshyt.in/api/chat")
     CHATBOT_API_KEY = os.environ.get("CHATBOT_API_KEY", "ritesh-8179b3a5da99f300be2d50e1e9789729")
     WORKERS = int(os.environ.get("WORKERS", 8))
 
@@ -126,7 +126,7 @@ else:
     TEMP_DOWNLOAD_DIRECTORY = Config.TEMP_DOWNLOAD_DIRECTORY
     TOKEN = Config.TOKEN
     TIME_API_KEY = Config.TIME_API_KEY
-    CHATBOT_API_URL = getattr(Config, "CHATBOT_API_URL", "https://chatgp-nine.vercel.app/api/chat")
+    CHATBOT_API_URL = getattr(Config, "CHATBOT_API_URL", "https://chatbot.riteshyt.in/api/chat")
     CHATBOT_API_KEY = getattr(Config, "CHATBOT_API_KEY", "ritesh-8179b3a5da99f300be2d50e1e9789729")
     WORKERS = Config.WORKERS
 

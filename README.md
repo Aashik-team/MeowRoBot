@@ -83,7 +83,7 @@ python3 -m MeowRobot
 | `MONGO_DB_URI` | MongoDB connection URI for persistent data | **Yes** | — |
 | `SUPPORT_CHAT` | Telegram support group username | No | `TeamAashik` |
 | `SUPPORT_CHANNEL` | Telegram updates channel username | No | `AashikTeam` |
-| `CHATBOT_API_URL` | Endpoint for the AI Chatbot | No | `https://chatgp-nine.vercel.app/api/chat` |
+| `CHATBOT_API_URL` | Endpoint for the AI Chatbot | No | `https://chatbot.riteshyt.in/api/chat` |
 | `CHATBOT_API_KEY` | Bearer API token for chatbot API | No | `ritesh-8179b3a5da99f300be2d50e1e9789729` |
 
 ---
