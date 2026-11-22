@@ -11,7 +11,14 @@ import threading
 from sqlalchemy import BigInteger, Boolean, Column, String, UnicodeText, distinct, func, select
 from sqlalchemy.dialects import postgresql
 
+from MeowRobot import DB_URI
 from MeowRobot.modules.sql import BASE, SESSION, engine
+
+if DB_URI and DB_URI.startswith("sqlite"):
+    from sqlalchemy import JSON
+    ReasonsType = JSON
+else:
+    ReasonsType = postgresql.ARRAY(UnicodeText)
 
 
 class Warns(BASE):
@@ -20,7 +27,7 @@ class Warns(BASE):
     user_id = Column(BigInteger, primary_key=True)
     chat_id = Column(String(14), primary_key=True)
     num_warns = Column(BigInteger, default=0)
-    reasons = Column(postgresql.ARRAY(UnicodeText))
+    reasons = Column(ReasonsType)
 
     def __init__(self, user_id, chat_id):
         self.user_id = user_id

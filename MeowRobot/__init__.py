@@ -41,6 +41,14 @@ if sys.version_info[0] < 3 or sys.version_info[1] < 10:
     )
     quit(1)
 
+if os.path.exists(".env"):
+    with open(".env", "r") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 ENV = bool(os.environ.get("ENV", False))
 
 if ENV:

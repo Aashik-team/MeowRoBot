@@ -15,16 +15,16 @@ class Config(object):
 
     CASH_API_KEY = ""  # Get this value for currency converter from https://www.alphavantage.co/support/#api-key
 
-    DATABASE_URL = ""  # A sql database url from elephantsql.com
+    DATABASE_URL = ""  # A sql database url from elephantsql.com or sqlite
 
     EVENT_LOGS = ()  # Event logs channel to note down important bot level events
 
-    MONGO_DB_URI = ""  # Get ths value from cloud.mongodb.com
+    MONGO_DB_URI = ""  # Get this value from cloud.mongodb.com
 
     # Telegraph link of the image which will be shown at start command.
-    START_IMG = "https://files.catbox.moe/34xlvu.jpg"
+    START_IMG = "https://files.catbox.moe/v00l7e.jpg"
 
-    SUPPORT_CHAT = "TeamAashik"  # Your Telegram support group chat username where your users will go and bother you
+    SUPPORT_CHAT = "KartikeMishra"  # Your Telegram support group chat username
     SUPPORT_CHANNEL = "AashikTeam"  # Your Telegram channel username for bot updates
 
     TOKEN = ""  # Get bot token from @BotFather on Telegram
