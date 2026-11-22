@@ -954,5 +954,12 @@ async def github_notifier_worker():
 
         await asyncio.sleep(60)
 
-# Start background notifier task
-asyncio.create_task(github_notifier_worker())
+# Start background notifier task safely once the event loop is active
+_notifier_started = False
+
+@bot.on_message(group=-999)
+async def _init_github_notifier(_, __):
+    global _notifier_started
+    if not _notifier_started:
+        _notifier_started = True
+        asyncio.create_task(github_notifier_worker())
