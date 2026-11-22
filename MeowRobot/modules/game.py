@@ -30,8 +30,11 @@ __help__ = """
 ❂ Track balances and stats for fun competitions.  
 """
 
-# Database functions
-gamedb = db.game_users
+def get_full_name(user) -> str:
+    if not user:
+        return "Unknown"
+    return f"{user.first_name} {user.last_name or ''}".strip()
+
 stealdb = db.game_steals
 
 async def get_cash(user_id: int) -> int:
@@ -118,7 +121,7 @@ async def _richList(_, m: types.Message):
         if not user_name:
             try:
                 telegram_user = await bot.get_users(user_id)
-                user_name = telegram_user.full_name
+                user_name = get_full_name(telegram_user)
                 await update_name(user_id, user_name)
             except Exception:
                 user_name = "Unknown"
@@ -137,8 +140,8 @@ async def _checkBalance(_, m: types.Message):
     cash = await get_cash(user.id)
     if cash == 0:
         return await m.reply("*Bro* You are too poor, try making some money otherwise you can't live in the world! 🥴")
-    await update_name(user.id, user.full_name)
-    await m.reply_photo(TRY_LATER_IMG, caption=f"**Yo, {user.full_name}! Your balance is a whopping {cash} cash!** 💸💸")
+    await update_name(user.id, get_full_name(user))
+    await m.reply_photo(TRY_LATER_IMG, caption=f"**Yo, {get_full_name(user)}! Your balance is a whopping {cash} cash!** 💸💸")
 
 
 # Steal command
@@ -180,7 +183,7 @@ async def _stealCash(_, m: types.Message):
         amount = int((steal_percentage / 100) * reply_cash)
         await update_cash(user.id, amount)
         await update_cash(reply_user.id, -amount)
-        await msg.edit(f"🤑 You just snagged {amount} cash 💸💸 ({steal_percentage}%) from {reply_user.full_name}! 😼")
+        await msg.edit(f"🤑 You just snagged {amount} cash 💸💸 ({steal_percentage}%) from {get_full_name(reply_user)}! 😼")
 
 
 # Gamble command
@@ -233,7 +236,7 @@ async def handle_dice_game(user, m, emoji, user_dict, rewards):
     value = msg_dice.dice.value
     reward = rewards.get(value, 0)
 
-    caption = f"🎲 **{user.full_name} scored** `{value}`!\n"
+    caption = f"🎲 **{get_full_name(user)} scored** `{value}`!\n"
     if reward > 0:
         await update_cash(user.id, reward)
         caption += f"💰 Earned: `{reward}` Cash 💸"

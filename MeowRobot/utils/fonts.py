@@ -2371,26 +2371,4 @@ class Fonts:
 import re
 
 def font(text: str) -> str:
-    if not text:
-        return ""
-
-    segments = re.split(r'(<[^>]+>)', text)
-    styled_segments = []
-    for segment in segments:
-        if segment.startswith('<') and segment.endswith('>'):
-            styled_segments.append(segment)
-        else:
-            styled_text = ""
-            for char in segment:
-                try:
-                    if char.isupper():
-                        styled_text += Fonts.serief(char)
-                    elif char.islower():
-                        styled_text += Fonts.smallcap(char)
-                    else:
-                        styled_text += char
-                except Exception:
-                    styled_text += char
-            styled_segments.append(styled_text)
-
-    return "".join(styled_segments)
+    return text or ""

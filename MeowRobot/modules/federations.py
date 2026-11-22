@@ -52,7 +52,7 @@ async def new_fed(_, m: types.Message):
         "fed_id": fed_id,
         "fed_name": fed_name,
         "owner_id": user_id,
-        "owner_name": m.from_user.full_name,
+        "owner_name": f"{m.from_user.first_name} {m.from_user.last_name or ''}".strip(),
         "admins": [user_id]
     })
 
@@ -204,7 +204,7 @@ async def fban_user(_, m: types.Message):
         {"$set": {
             "fed_id": fed_id,
             "user_id": target_user.id,
-            "user_name": target_user.full_name,
+            "user_name": f"{target_user.first_name} {target_user.last_name or ''}".strip(),
             "reason": reason,
             "banned_by": m.from_user.id
         }},
