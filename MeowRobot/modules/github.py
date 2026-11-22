@@ -4,25 +4,40 @@
 # All rights reserved.
 
 import os
+import asyncio
+import logging
 import urllib.parse
 import httpx
-from pyrogram import filters, types
+from pyrogram import filters, types, enums
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
-from MeowRobot import pbot as bot
+from MeowRobot import pbot as bot, DRAGONS as DEV_LIST
 from MeowRobot.utils.fonts import font
+from MeowRobot.utils.mongo import db
+
+logger = logging.getLogger(__name__)
 
 __mod_name__ = "GitHub"
 __module__ = "𝐆ɪᴛʜᴜʙ🐙"
 
 __help__ = """
-*Comprehensive GitHub Suite Module🐙*
+*Comprehensive GitHub Bot Suite Module🐙*
 (Ported from AshokShau/GithubBot)
 
-*User & Organization:*  
-❂ `/git [username]` (or `/user`) — View complete profile and stats of a GitHub user  
-❂ `/org [org_name]` — View profile, description, and members of a GitHub organization  
+*Authentication & Account:*  
+❂ `/connect [token]` — Connect your GitHub account via Personal Access Token (PM only)  
+❂ `/disconnect` — Disconnect and log out of your GitHub account  
+❂ `/me` — View details of your connected GitHub account  
 
-*Repository Inspection:*  
+*Repository Notifications & Management:*  
+❂ `/addrepo [owner/repo]` — Link a repository to this chat to receive event notifications  
+❂ `/removerepo [owner/repo]` — Unlink a repository from this chat  
+❂ `/repos` — List all repositories currently linked to this chat  
+❂ `/settings [owner/repo]` — Choose which events to receive (Pushes, Issues, PRs, Releases) with interactive buttons  
+❂ `/star [owner/repo]` — Star a repository directly on GitHub using your connected account  
+❂ `/fork [owner/repo]` — Fork a repository to your connected GitHub account  
+
+*Repository & User Inspection:*  
 ❂ `/repo [owner/repo]` — Detailed overview of a repository (stars, forks, watchers, license)  
 ❂ `/commits [owner/repo]` — View recent commits with author, hash, and messages  
 ❂ `/releases [owner/repo]` — View latest releases, assets, tags, and changelogs  
@@ -30,21 +45,421 @@ __help__ = """
 ❂ `/prs [owner/repo]` (or `/pulls`) — List open pull requests of a repository  
 ❂ `/branches [owner/repo]` — List active branches of a repository  
 ❂ `/contributors [owner/repo]` — Top contributors ranked by contribution count  
-
-*Search:*  
+❂ `/git [username]` (or `/user`) — View complete profile and stats of a GitHub user  
+❂ `/org [org_name]` — View profile and details of a GitHub organization  
 ❂ `/ghsearch [keyword]` — Search GitHub repositories with stars, forks, and links  
 """
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "").strip()
 
-def get_headers():
+# Database collections
+gh_users = db["github_connected_users"]
+gh_chat_repos = db["github_linked_repos"]
+gh_event_cache = db["github_event_cache"]
+
+def get_headers(custom_token: str = None):
     headers = {"Accept": "application/vnd.github.v3+json"}
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    token = custom_token or GITHUB_TOKEN
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     return headers
 
+async def is_admin(chat_id: int, user_id: int) -> bool:
+    if user_id in DEV_LIST:
+        return True
+    try:
+        member = await bot.get_chat_member(chat_id, user_id)
+        return member.status in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]
+    except Exception:
+        return False
 
-# 1. User Profile
+
+# ===========================================================================
+# 1. AUTHENTICATION & ACCOUNT COMMANDS (/connect, /disconnect, /me)
+# ===========================================================================
+
+@bot.on_message(filters.command("connect") & filters.private)
+async def gh_connect(_, m: types.Message):
+    if len(m.command) < 2:
+        return await m.reply_text(
+            "🐙 **Connect Your GitHub Account**\n\n"
+            "To connect your GitHub account and manage repos directly from Telegram:\n"
+            "1. Open GitHub: [Personal Access Tokens](https://github.com/settings/tokens)\n"
+            "2. Click **Generate new token (classic)**\n"
+            "3. Select scopes: `repo` (Full control of repositories)\n"
+            "4. Copy your token and send:\n"
+            "👉 `/connect YOUR_GITHUB_TOKEN`\n\n"
+            "🔒 *Your token is securely stored and never shared.*",
+            disable_web_page_preview=True
+        )
+
+    token = m.command[1].strip()
+    status_msg = await m.reply_text(font("⏳ Verifying your GitHub token..."))
+
+    url = "https://api.github.com/user"
+    try:
+        async with httpx.AsyncClient(timeout=10.0, headers=get_headers(token)) as client:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                user_data = resp.json()
+                login = user_data.get("login")
+                name = user_data.get("name") or login
+                html_url = user_data.get("html_url")
+
+                await gh_users.update_one(
+                    {"user_id": m.from_user.id},
+                    {"$set": {
+                        "user_id": m.from_user.id,
+                        "github_username": login,
+                        "github_name": name,
+                        "token": token
+                    }},
+                    upsert=True
+                )
+
+                return await status_msg.edit_text(
+                    f"✅ **GitHub Account Connected Successfully!**\n\n"
+                    f"👤 **User:** [{name}]({html_url}) (`@{login}`)\n\n"
+                    f"You can now:\n"
+                    f"• Star repositories: `/star owner/repo`\n"
+                    f"• Fork repositories: `/fork owner/repo`\n"
+                    f"• View profile: `/me`\n"
+                    f"• Disconnect anytime: `/disconnect`",
+                    disable_web_page_preview=False
+                )
+
+        await status_msg.edit_text(font("❌ Invalid GitHub token! Please verify permissions and try again."))
+    except Exception as e:
+        await status_msg.edit_text(font(f"❌ Error verifying token: {e}"))
+
+
+@bot.on_message(filters.command(["disconnect", "logout"]) & filters.private)
+async def gh_disconnect(_, m: types.Message):
+    res = await gh_users.delete_one({"user_id": m.from_user.id})
+    if res.deleted_count > 0:
+        await m.reply_text(font("✅ Your GitHub account has been disconnected and your token removed."))
+    else:
+        await m.reply_text(font("❌ You don't have any GitHub account connected. Use `/connect` to link one."))
+
+
+@bot.on_message(filters.command("me") & filters.private)
+async def gh_me(_, m: types.Message):
+    user_doc = await gh_users.find_one({"user_id": m.from_user.id})
+    if not user_doc:
+        return await m.reply_text(font("❌ No GitHub account connected! Send `/connect` to link your account."))
+
+    token = user_doc.get("token")
+    url = "https://api.github.com/user"
+    try:
+        async with httpx.AsyncClient(timeout=10.0, headers=get_headers(token)) as client:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                data = resp.json()
+                login = data.get("login")
+                name = data.get("name") or login
+                bio = data.get("bio") or "No bio."
+                repos = data.get("public_repos", 0)
+                followers = data.get("followers", 0)
+                html_url = data.get("html_url")
+
+                caption = (
+                    f"🐙 **Connected GitHub Account**\n\n"
+                    f"👤 **Name:** [{name}]({html_url}) (`@{login}`)\n"
+                    f"💬 **Bio:** `{bio}`\n"
+                    f"📦 **Public Repos:** `{repos}`\n"
+                    f"👥 **Followers:** `{followers}`\n\n"
+                    f"Use `/disconnect` to unlink."
+                )
+                return await m.reply_text(caption, disable_web_page_preview=False)
+
+        await m.reply_text(font("❌ Could not fetch GitHub profile. Your token might have expired. Use `/connect` again."))
+    except Exception as e:
+        await m.reply_text(font(f"❌ Error: {e}"))
+
+
+# ===========================================================================
+# 2. REPOSITORY LINKING & NOTIFICATIONS (/addrepo, /removerepo, /repos, /settings)
+# ===========================================================================
+
+@bot.on_message(filters.command(["addrepo", "add"]) & ~filters.forwarded)
+async def gh_add_repo(_, m: types.Message):
+    if m.chat.type != enums.ChatType.PRIVATE and not await is_admin(m.chat.id, m.from_user.id):
+        return await m.reply_text(font("❌ Only group admins can link repositories to this chat."))
+
+    if len(m.command) < 2 or "/" not in m.command[1]:
+        return await m.reply_text(font("❌ Usage: `/addrepo [owner/repository]` (e.g. `/addrepo TheAloneTeam/MeowRoBot`)"))
+
+    repo_path = m.command[1].strip()
+    status_msg = await m.reply_text(font(f"🔍 Checking repository '{repo_path}'..."))
+
+    # Validate repo existence
+    url = f"https://api.github.com/repos/{repo_path}"
+    try:
+        async with httpx.AsyncClient(timeout=10.0, headers=get_headers()) as client:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                return await status_msg.edit_text(font("❌ Repository not found on GitHub or is private!"))
+
+            data = resp.json()
+            full_name = data.get("full_name", repo_path)
+            html_url = data.get("html_url")
+
+            # Default events
+            events = {
+                "pushes": True,
+                "issues": True,
+                "pulls": True,
+                "releases": True,
+                "stars": True
+            }
+
+            await gh_chat_repos.update_one(
+                {"chat_id": m.chat.id, "repo": full_name.lower()},
+                {"$set": {
+                    "chat_id": m.chat.id,
+                    "repo": full_name.lower(),
+                    "repo_name": full_name,
+                    "events": events
+                }},
+                upsert=True
+            )
+
+            # Pre-cache latest commit and release to avoid spamming old history
+            try:
+                c_resp = await client.get(f"https://api.github.com/repos/{full_name}/commits?per_page=1")
+                if c_resp.status_code == 200 and c_resp.json():
+                    latest_sha = c_resp.json()[0].get("sha")
+                    await gh_event_cache.update_one(
+                        {"repo": full_name.lower()},
+                        {"$set": {"last_commit": latest_sha}},
+                        upsert=True
+                    )
+            except Exception:
+                pass
+
+            buttons = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⚙️ Configure Events", callback_data=f"gh_settings|{m.chat.id}|{full_name}")],
+                [InlineKeyboardButton("🌐 Open on GitHub", url=html_url)]
+            ])
+
+            await status_msg.edit_text(
+                f"✅ **Repository Linked Successfully!**\n\n"
+                f"📂 **Repo:** [{full_name}]({html_url})\n"
+                f"🔔 **Notifications Active:** Pushes, Issues, PRs, Releases, Stars\n\n"
+                f"Use `/settings {full_name}` or the button below to customize alerts.",
+                reply_markup=buttons,
+                disable_web_page_preview=False
+            )
+    except Exception as e:
+        await status_msg.edit_text(font(f"❌ Error linking repository: {e}"))
+
+
+@bot.on_message(filters.command(["removerepo", "rmrepo", "rm"]) & ~filters.forwarded)
+async def gh_remove_repo(_, m: types.Message):
+    if m.chat.type != enums.ChatType.PRIVATE and not await is_admin(m.chat.id, m.from_user.id):
+        return await m.reply_text(font("❌ Only group admins can unlink repositories."))
+
+    if len(m.command) < 2 or "/" not in m.command[1]:
+        return await m.reply_text(font("❌ Usage: `/removerepo [owner/repository]`"))
+
+    repo_path = m.command[1].strip().lower()
+    res = await gh_chat_repos.delete_one({"chat_id": m.chat.id, "repo": repo_path})
+
+    if res.deleted_count > 0:
+        await m.reply_text(font(f"✅ Repository `{repo_path}` unlinked! You will no longer receive notifications here."))
+    else:
+        await m.reply_text(font(f"❌ Repository `{repo_path}` is not linked to this chat. Use `/repos` to check."))
+
+
+@bot.on_message(filters.command("repos") & ~filters.forwarded)
+async def gh_list_repos(_, m: types.Message):
+    docs = await gh_chat_repos.find({"chat_id": m.chat.id}).to_list(length=50)
+    if not docs:
+        return await m.reply_text(font("ℹ️ No repositories are linked to this chat yet!\n\nUse `/addrepo [owner/repo]` to link one."))
+
+    text = f"📂 **Linked GitHub Repositories for this chat ({len(docs)}):**\n\n"
+    for idx, d in enumerate(docs, 1):
+        name = d.get("repo_name", d["repo"])
+        events = d.get("events", {})
+        active_list = [k.capitalize() for k, v in events.items() if v]
+        active_str = ", ".join(active_list) if active_list else "None"
+        text += f"{idx}. [{name}](https://github.com/{name})\n   🔔 Alerts: `{active_str}`\n   ⚙️ `/settings {name}`\n\n"
+
+    await m.reply_text(text, disable_web_page_preview=True)
+
+
+def build_settings_keyboard(chat_id: int, repo_name: str, events: dict):
+    def icon(k):
+        return "🟢" if events.get(k, True) else "🔴"
+
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(f"{icon('pushes')} Pushes", callback_data=f"gh_tog|{chat_id}|{repo_name}|pushes"),
+            InlineKeyboardButton(f"{icon('issues')} Issues", callback_data=f"gh_tog|{chat_id}|{repo_name}|issues")
+        ],
+        [
+            InlineKeyboardButton(f"{icon('pulls')} Pull Requests", callback_data=f"gh_tog|{chat_id}|{repo_name}|pulls"),
+            InlineKeyboardButton(f"{icon('releases')} Releases", callback_data=f"gh_tog|{chat_id}|{repo_name}|releases")
+        ],
+        [
+            InlineKeyboardButton(f"{icon('stars')} Stars & Forks", callback_data=f"gh_tog|{chat_id}|{repo_name}|stars")
+        ],
+        [
+            InlineKeyboardButton("🗑️ Unlink Repository", callback_data=f"gh_unlink|{chat_id}|{repo_name}")
+        ]
+    ])
+
+
+@bot.on_message(filters.command(["settings", "config", "events"]) & ~filters.forwarded)
+async def gh_settings_cmd(_, m: types.Message):
+    if m.chat.type != enums.ChatType.PRIVATE and not await is_admin(m.chat.id, m.from_user.id):
+        return await m.reply_text(font("❌ Only group admins can change notification settings."))
+
+    docs = await gh_chat_repos.find({"chat_id": m.chat.id}).to_list(length=50)
+    if not docs:
+        return await m.reply_text(font("❌ No repositories linked to this chat! Use `/addrepo [owner/repo]` first."))
+
+    target_doc = None
+    if len(m.command) > 1:
+        target_name = m.command[1].strip().lower()
+        for d in docs:
+            if d["repo"] == target_name:
+                target_doc = d
+                break
+    else:
+        target_doc = docs[0]
+
+    if not target_doc:
+        return await m.reply_text(font("❌ Linked repository not found. Use `/repos` to view available."))
+
+    repo_name = target_doc.get("repo_name", target_doc["repo"])
+    events = target_doc.get("events", {})
+    keyboard = build_settings_keyboard(m.chat.id, repo_name, events)
+
+    await m.reply_text(
+        f"⚙️ **Notification Settings for [{repo_name}](https://github.com/{repo_name}):**\n\n"
+        f"Tap the buttons below to toggle notification events on (🟢) or off (🔴):",
+        reply_markup=keyboard,
+        disable_web_page_preview=True
+    )
+
+
+@bot.on_callback_query(filters.regex(r"^gh_"))
+async def gh_callbacks(_, cb: CallbackQuery):
+    data = cb.data.split("|")
+    action = data[0]
+
+    if action == "gh_settings":
+        chat_id = int(data[1])
+        repo_name = data[2]
+        doc = await gh_chat_repos.find_one({"chat_id": chat_id, "repo": repo_name.lower()})
+        if not doc:
+            return await cb.answer("Repository not found!", show_alert=True)
+        events = doc.get("events", {})
+        kb = build_settings_keyboard(chat_id, repo_name, events)
+        await cb.message.edit_text(
+            f"⚙️ **Notification Settings for [{repo_name}](https://github.com/{repo_name}):**\n\n"
+            f"Tap the buttons below to toggle notification events on (🟢) or off (🔴):",
+            reply_markup=kb,
+            disable_web_page_preview=True
+        )
+        await cb.answer()
+
+    elif action == "gh_tog":
+        chat_id = int(data[1])
+        repo_name = data[2]
+        event_key = data[3]
+
+        doc = await gh_chat_repos.find_one({"chat_id": chat_id, "repo": repo_name.lower()})
+        if not doc:
+            return await cb.answer("Repository not linked!", show_alert=True)
+
+        events = doc.get("events", {})
+        current = events.get(event_key, True)
+        events[event_key] = not current
+
+        await gh_chat_repos.update_one(
+            {"chat_id": chat_id, "repo": repo_name.lower()},
+            {"$set": {"events": events}}
+        )
+
+        kb = build_settings_keyboard(chat_id, repo_name, events)
+        await cb.message.edit_reply_markup(reply_markup=kb)
+        await cb.answer(f"{event_key.capitalize()}: {'Enabled' if not current else 'Disabled'}")
+
+    elif action == "gh_unlink":
+        chat_id = int(data[1])
+        repo_name = data[2]
+        await gh_chat_repos.delete_one({"chat_id": chat_id, "repo": repo_name.lower()})
+        await cb.message.edit_text(f"🗑️ Repository `{repo_name}` unlinked from this chat!")
+        await cb.answer("Unlinked successfully!")
+
+
+# ===========================================================================
+# 3. DIRECT GITHUB ACTIONS (/star, /fork)
+# ===========================================================================
+
+@bot.on_message(filters.command("star") & ~filters.forwarded)
+async def gh_star_cmd(_, m: types.Message):
+    user_doc = await gh_users.find_one({"user_id": m.from_user.id})
+    if not user_doc:
+        return await m.reply_text(font("❌ Connect your GitHub account first! Send `/connect` in private to link."))
+
+    if len(m.command) < 2 or "/" not in m.command[1]:
+        return await m.reply_text(font("❌ Usage: `/star [owner/repository]` (e.g. `/star TheAloneTeam/MeowRoBot`)"))
+
+    repo_path = m.command[1].strip()
+    status_msg = await m.reply_text(font(f"⭐ Starring '{repo_path}'..."))
+
+    token = user_doc.get("token")
+    url = f"https://api.github.com/user/starred/{repo_path}"
+    try:
+        async with httpx.AsyncClient(timeout=10.0, headers=get_headers(token)) as client:
+            resp = await client.put(url, headers={"Content-Length": "0"})
+            if resp.status_code in [204, 200]:
+                return await status_msg.edit_text(f"⭐ **Successfully starred [{repo_path}](https://github.com/{repo_path})!**")
+
+        await status_msg.edit_text(font("❌ Failed to star repository. Check permissions or repository name."))
+    except Exception as e:
+        await status_msg.edit_text(font(f"❌ Error: {e}"))
+
+
+@bot.on_message(filters.command("fork") & ~filters.forwarded)
+async def gh_fork_cmd(_, m: types.Message):
+    user_doc = await gh_users.find_one({"user_id": m.from_user.id})
+    if not user_doc:
+        return await m.reply_text(font("❌ Connect your GitHub account first! Send `/connect` in private to link."))
+
+    if len(m.command) < 2 or "/" not in m.command[1]:
+        return await m.reply_text(font("❌ Usage: `/fork [owner/repository]`"))
+
+    repo_path = m.command[1].strip()
+    status_msg = await m.reply_text(font(f"🍴 Forking '{repo_path}' to your account..."))
+
+    token = user_doc.get("token")
+    url = f"https://api.github.com/repos/{repo_path}/forks"
+    try:
+        async with httpx.AsyncClient(timeout=15.0, headers=get_headers(token)) as client:
+            resp = await client.post(url)
+            if resp.status_code in [202, 201, 200]:
+                data = resp.json()
+                fork_url = data.get("html_url")
+                return await status_msg.edit_text(
+                    f"🍴 **Repository Forked Successfully!**\n\n"
+                    f"🔗 **Your Fork:** [Open Fork]({fork_url})\n\n"
+                    f"♨️ **Powered by:** @TheAloneTeam",
+                    disable_web_page_preview=False
+                )
+
+        await status_msg.edit_text(font("❌ Failed to fork repository. It might already be forked or is private."))
+    except Exception as e:
+        await status_msg.edit_text(font(f"❌ Error: {e}"))
+
+
+# ===========================================================================
+# 4. REPOSITORY & USER INSPECTION COMMANDS
+# ===========================================================================
+
 @bot.on_message(filters.command(["git", "github", "user"]) & ~filters.forwarded)
 async def github_user(_, m: types.Message):
     if len(m.command) < 2:
@@ -94,7 +509,6 @@ async def github_user(_, m: types.Message):
         await status_msg.edit_text(font(f"❌ Error: {e}"))
 
 
-# 2. Organization Profile
 @bot.on_message(filters.command(["org", "organization"]) & ~filters.forwarded)
 async def github_org(_, m: types.Message):
     if len(m.command) < 2:
@@ -141,7 +555,6 @@ async def github_org(_, m: types.Message):
         await status_msg.edit_text(font(f"❌ Error: {e}"))
 
 
-# 3. Repository Overview
 @bot.on_message(filters.command(["repo", "repository"]) & ~filters.forwarded)
 async def github_repo(_, m: types.Message):
     if len(m.command) < 2 or "/" not in m.command[1]:
@@ -187,11 +600,10 @@ async def github_repo(_, m: types.Message):
         await status_msg.edit_text(font(f"❌ Error: {e}"))
 
 
-# 4. Recent Commits
 @bot.on_message(filters.command(["commits", "commit"]) & ~filters.forwarded)
 async def github_commits(_, m: types.Message):
     if len(m.command) < 2 or "/" not in m.command[1]:
-        return await m.reply_text(font("❌ Usage: `/commits [owner/repository]` (e.g. `/commits TheAloneTeam/MeowRoBot`)"))
+        return await m.reply_text(font("❌ Usage: `/commits [owner/repository]`"))
 
     repo_path = m.command[1].strip()
     status_msg = await m.reply_text(font("🔍 Fetching latest commits..."))
@@ -224,11 +636,10 @@ async def github_commits(_, m: types.Message):
         await status_msg.edit_text(font(f"❌ Error: {e}"))
 
 
-# 5. Releases & Changelogs
 @bot.on_message(filters.command(["releases", "release"]) & ~filters.forwarded)
 async def github_releases(_, m: types.Message):
     if len(m.command) < 2 or "/" not in m.command[1]:
-        return await m.reply_text(font("❌ Usage: `/releases [owner/repository]` (e.g. `/releases TheAloneTeam/MeowRoBot`)"))
+        return await m.reply_text(font("❌ Usage: `/releases [owner/repository]`"))
 
     repo_path = m.command[1].strip()
     status_msg = await m.reply_text(font("🔍 Fetching releases..."))
@@ -265,11 +676,10 @@ async def github_releases(_, m: types.Message):
         await status_msg.edit_text(font(f"❌ Error: {e}"))
 
 
-# 6. Issues List
 @bot.on_message(filters.command(["issues", "issue"]) & ~filters.forwarded)
 async def github_issues(_, m: types.Message):
     if len(m.command) < 2 or "/" not in m.command[1]:
-        return await m.reply_text(font("❌ Usage: `/issues [owner/repository]` (e.g. `/issues TheAloneTeam/MeowRoBot`)"))
+        return await m.reply_text(font("❌ Usage: `/issues [owner/repository]`"))
 
     repo_path = m.command[1].strip()
     status_msg = await m.reply_text(font("🔍 Fetching open issues..."))
@@ -280,7 +690,6 @@ async def github_issues(_, m: types.Message):
             resp = await client.get(url)
             if resp.status_code == 200:
                 issues = resp.json()
-                # Exclude pull requests (GitHub API returns PRs in issues endpoint unless filtered)
                 pure_issues = [i for i in issues if "pull_request" not in i]
                 if not pure_issues:
                     return await status_msg.edit_text(font("✨ No open issues in this repository!"))
@@ -303,11 +712,10 @@ async def github_issues(_, m: types.Message):
         await status_msg.edit_text(font(f"❌ Error: {e}"))
 
 
-# 7. Pull Requests List
 @bot.on_message(filters.command(["prs", "pulls", "pullrequests"]) & ~filters.forwarded)
 async def github_prs(_, m: types.Message):
     if len(m.command) < 2 or "/" not in m.command[1]:
-        return await m.reply_text(font("❌ Usage: `/prs [owner/repository]` (e.g. `/prs TheAloneTeam/MeowRoBot`)"))
+        return await m.reply_text(font("❌ Usage: `/prs [owner/repository]`"))
 
     repo_path = m.command[1].strip()
     status_msg = await m.reply_text(font("🔍 Fetching open pull requests..."))
@@ -339,11 +747,10 @@ async def github_prs(_, m: types.Message):
         await status_msg.edit_text(font(f"❌ Error: {e}"))
 
 
-# 8. Contributors List
 @bot.on_message(filters.command(["contributors", "contribs"]) & ~filters.forwarded)
 async def github_contributors(_, m: types.Message):
     if len(m.command) < 2 or "/" not in m.command[1]:
-        return await m.reply_text(font("❌ Usage: `/contributors [owner/repository]` (e.g. `/contributors TheAloneTeam/MeowRoBot`)"))
+        return await m.reply_text(font("❌ Usage: `/contributors [owner/repository]`"))
 
     repo_path = m.command[1].strip()
     status_msg = await m.reply_text(font("🔍 Fetching contributors..."))
@@ -373,11 +780,10 @@ async def github_contributors(_, m: types.Message):
         await status_msg.edit_text(font(f"❌ Error: {e}"))
 
 
-# 9. Branches List
 @bot.on_message(filters.command(["branches", "branch"]) & ~filters.forwarded)
 async def github_branches(_, m: types.Message):
     if len(m.command) < 2 or "/" not in m.command[1]:
-        return await m.reply_text(font("❌ Usage: `/branches [owner/repository]` (e.g. `/branches TheAloneTeam/MeowRoBot`)"))
+        return await m.reply_text(font("❌ Usage: `/branches [owner/repository]`"))
 
     repo_path = m.command[1].strip()
     status_msg = await m.reply_text(font("🔍 Fetching branches..."))
@@ -405,11 +811,10 @@ async def github_branches(_, m: types.Message):
         await status_msg.edit_text(font(f"❌ Error: {e}"))
 
 
-# 10. Repository Search
 @bot.on_message(filters.command(["ghsearch", "searchrepo"]) & ~filters.forwarded)
 async def github_search(_, m: types.Message):
     if len(m.command) < 2:
-        return await m.reply_text(font("❌ Usage: `/ghsearch [search keywords]` (e.g. `/ghsearch telegram bot python`)"))
+        return await m.reply_text(font("❌ Usage: `/ghsearch [search keywords]`"))
 
     query = m.text.split(None, 1)[1].strip()
     status_msg = await m.reply_text(font(f"🔍 Searching GitHub repositories for '{query}'..."))
@@ -448,3 +853,106 @@ async def github_search(_, m: types.Message):
         await status_msg.edit_text(font("❌ GitHub search API failed. Please try again later."))
     except Exception as e:
         await status_msg.edit_text(font(f"❌ Error: {e}"))
+
+
+# ===========================================================================
+# 5. BACKGROUND NOTIFIER LOOP (Checks linked repositories for real-time events)
+# ===========================================================================
+
+async def github_notifier_worker():
+    """Background task checking linked repositories and broadcasting updates"""
+    logger.info("GitHub Real-time Event Notifier loop started.")
+    await asyncio.sleep(20)  # Wait for bot startup
+
+    while True:
+        try:
+            # Get distinct linked repositories
+            linked_entries = await gh_chat_repos.find({}).to_list(length=200)
+            if not linked_entries:
+                await asyncio.sleep(60)
+                continue
+
+            # Group chats by repository
+            repo_chats = {}
+            for entry in linked_entries:
+                r = entry["repo"]
+                if r not in repo_chats:
+                    repo_chats[r] = []
+                repo_chats[r].append(entry)
+
+            async with httpx.AsyncClient(timeout=15.0, headers=get_headers()) as client:
+                for repo_key, chats in repo_chats.items():
+                    cache = await gh_event_cache.find_one({"repo": repo_key}) or {}
+
+                    # 1. Check Commits
+                    try:
+                        c_resp = await client.get(f"https://api.github.com/repos/{repo_key}/commits?per_page=1")
+                        if c_resp.status_code == 200 and c_resp.json():
+                            latest_c = c_resp.json()[0]
+                            latest_sha = latest_c.get("sha")
+                            cached_sha = cache.get("last_commit")
+
+                            if cached_sha and latest_sha != cached_sha:
+                                sha_short = latest_sha[:7]
+                                msg_text = (latest_c.get("commit", {}).get("message") or "").split("\n")[0]
+                                author = latest_c.get("commit", {}).get("author", {}).get("name", "Unknown")
+                                html_url = latest_c.get("html_url")
+
+                                notif = (
+                                    f"🐙 **[GitHub] New Commit Pushed!**\n\n"
+                                    f"📂 **Repository:** [{repo_key}](https://github.com/{repo_key})\n"
+                                    f"🔹 [`{sha_short}`]({html_url}) — **{msg_text}**\n"
+                                    f"👤 **Author:** `{author}`"
+                                )
+
+                                for ch in chats:
+                                    if ch.get("events", {}).get("pushes", True):
+                                        try:
+                                            await bot.send_message(ch["chat_id"], notif, disable_web_page_preview=True)
+                                        except Exception:
+                                            pass
+
+                            await gh_event_cache.update_one({"repo": repo_key}, {"$set": {"last_commit": latest_sha}}, upsert=True)
+                    except Exception:
+                        pass
+
+                    # 2. Check Releases
+                    try:
+                        r_resp = await client.get(f"https://api.github.com/repos/{repo_key}/releases?per_page=1")
+                        if r_resp.status_code == 200 and r_resp.json():
+                            latest_r = r_resp.json()[0]
+                            rel_id = latest_r.get("id")
+                            cached_rel_id = cache.get("last_release")
+
+                            if cached_rel_id and rel_id != cached_rel_id:
+                                tag = latest_r.get("tag_name")
+                                name = latest_r.get("name") or tag
+                                html_url = latest_r.get("html_url")
+
+                                notif = (
+                                    f"🏷️ **[GitHub] New Release Published!**\n\n"
+                                    f"📂 **Repository:** [{repo_key}](https://github.com/{repo_key})\n"
+                                    f"📦 **Release:** [{name}]({html_url}) (`{tag}`)\n"
+                                    f"✨ Check release notes and download assets now!"
+                                )
+
+                                for ch in chats:
+                                    if ch.get("events", {}).get("releases", True):
+                                        try:
+                                            await bot.send_message(ch["chat_id"], notif, disable_web_page_preview=True)
+                                        except Exception:
+                                            pass
+
+                            await gh_event_cache.update_one({"repo": repo_key}, {"$set": {"last_release": rel_id}}, upsert=True)
+                    except Exception:
+                        pass
+
+                    await asyncio.sleep(2)  # Avoid hammering GitHub API
+
+        except Exception as e:
+            logger.error(f"Error in GitHub notifier loop: {e}")
+
+        await asyncio.sleep(60)
+
+# Start background notifier task
+asyncio.create_task(github_notifier_worker())
