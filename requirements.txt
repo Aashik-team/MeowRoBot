@@ -42,3 +42,4 @@ meowbox
 SpeechRecognition
 pydub
 edge-tts
+img2pdf
