@@ -15,6 +15,11 @@ from collections import OrderedDict
 import requests
 
 try:
+    import edge_tts
+except ImportError:
+    edge_tts = None
+
+try:
     from gtts import gTTS
 except ImportError:
     gTTS = None
@@ -38,6 +43,7 @@ from MeowRobot.utils.mongo import chatbot_db as DB
 
 API_URL = os.environ.get("CHATBOT_API_URL", "https://chatbot.riteshyt.in/api/chat")
 API_KEY = os.environ.get("CHATBOT_API_KEY", "ritesh-8179b3a5da99f300be2d50e1e9789729")
+CUTE_GIRL_VOICE = os.environ.get("CHATBOT_VOICE", "hi-IN-SwaraNeural")
 TRIGGERS = ["hi", "hello", "hey", "baby", "Meow"]
 
 class LRUCache:
@@ -79,7 +85,7 @@ def load_prompt():
                 return f.read().strip()
     except:
         pass
-    return "You are a sweet, friendly girl chatting naturally in Hinglish and English. Keep replies very short and human-like. User is {user_name}. Never admit you are an AI."
+    return "You are a sweet, cute friendly Indian girl chatting naturally in Hinglish and English. Keep replies very short and human-like. User is {user_name}. Never admit you are an AI."
 
 SYSTEM_PROMPT = load_prompt()
 
@@ -112,37 +118,67 @@ async def voice_toggle(_, message: Message):
     arg = message.command[1].lower()
     if arg == "on":
         await DB.update_one({"chat_id": message.chat.id}, {"$set": {"voice_enabled": True}}, upsert=True)
-        await message.reply_text("🎙 Voice Mode is now ENABLED. I will reply with audio notes!")
+        await message.reply_text("🎙 Voice Mode is now ENABLED. I will reply with cute voice notes!")
     elif arg == "off":
         await DB.update_one({"chat_id": message.chat.id}, {"$set": {"voice_enabled": False}}, upsert=True)
         await message.reply_text("📝 Voice Mode is now DISABLED. I will reply with text.")
     else:
         await message.reply_text("Invalid argument. Use `on` or `off`.")
 
-def text_to_speech(text: str) -> BytesIO:
-    if not gTTS:
-        raise RuntimeError("gTTS is not installed.")
-    tts = gTTS(text, lang='hi') # Hindi supports Hinglish well
-    mp3_fp = BytesIO()
-    tts.write_to_fp(mp3_fp)
-    mp3_fp.seek(0)
-    
-    try:
-        if AudioSegment:
-            # Convert mp3 to ogg opus for Telegram using pydub
-            audio = AudioSegment.from_file(mp3_fp, format="mp3")
+async def text_to_speech(text: str) -> BytesIO:
+    # Clean formatting markers so speech sounds natural
+    clean_text = re.sub(r'[*_`#~]', '', text).strip()
+    # Remove code blocks or file notices from spoken audio
+    clean_text = re.sub(r'\[Long code block.*?\]', '', clean_text).strip()
+    if not clean_text:
+        clean_text = "Haanji!"
+
+    mp3_data = b""
+
+    # 1. First priority: High-quality cute girl voice via Edge-TTS (Swara Neural)
+    if edge_tts:
+        try:
+            communicate = edge_tts.Communicate(
+                clean_text,
+                voice=CUTE_GIRL_VOICE,
+                pitch="+10Hz",
+                rate="+5%"
+            )
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    mp3_data += chunk["data"]
+        except Exception as e:
+            LOGGER.error(f"Edge-TTS error: {e}")
+            mp3_data = b""
+
+    # 2. Fallback: gTTS if Edge-TTS is unavailable or failed
+    if not mp3_data:
+        if not gTTS:
+            raise RuntimeError("Neither edge-tts nor gTTS is installed.")
+        loop = asyncio.get_event_loop()
+        def _gtts():
+            tts = gTTS(clean_text, lang='hi')
+            fp = BytesIO()
+            tts.write_to_fp(fp)
+            fp.seek(0)
+            return fp.read()
+        mp3_data = await loop.run_in_executor(None, _gtts)
+
+    # Convert to Telegram Opus voice format
+    if AudioSegment:
+        try:
+            audio = AudioSegment.from_file(BytesIO(mp3_data), format="mp3")
             ogg_fp = BytesIO()
             ogg_fp.name = "voice.ogg"
             audio.export(ogg_fp, format="ogg", codec="libopus")
             ogg_fp.seek(0)
             return ogg_fp
-        else:
-            mp3_fp.name = "voice.mp3"
-            return mp3_fp
-    except Exception as e:
-        LOGGER.error(f"Pydub/ffmpeg error during TTS: {e}")
-        mp3_fp.name = "voice.mp3"
-        return mp3_fp
+        except Exception as e:
+            LOGGER.error(f"Audio conversion error: {e}")
+
+    mp3_fp = BytesIO(mp3_data)
+    mp3_fp.name = "voice.mp3"
+    return mp3_fp
 
 async def fetch_chat_response(payload: dict) -> dict:
     loop = asyncio.get_event_loop()
@@ -265,7 +301,7 @@ async def chatbot_handler(_, message: Message):
     group_name = message.chat.title if message.chat else "Private Chat"
     
     prompt = SYSTEM_PROMPT.replace("{user_name}", user_name)
-    prompt += f"\n\nYou are talking in a group named: {group_name}. Be helpful and engaging."
+    prompt += f"\n\nYou are talking in a group named: {group_name}. Be helpful, cute, and engaging."
 
     # Update history
     history = chat_histories.get(chat_id)
@@ -336,10 +372,9 @@ async def chatbot_handler(_, message: Message):
                         reply = reply.replace(original_block, f"**[Long code block sent as file: {filename}]**")
 
                 if reply.strip():
-                    if should_send_voice and not code_blocks and gTTS:
+                    if should_send_voice and not code_blocks and (edge_tts or gTTS):
                         try:
-                            loop = asyncio.get_event_loop()
-                            voice_fp = await loop.run_in_executor(None, text_to_speech, reply)
+                            voice_fp = await text_to_speech(reply)
                             await message.reply_voice(voice=voice_fp)
                         except Exception as e:
                             LOGGER.error(f"TTS error: {e}")
@@ -354,9 +389,9 @@ async def chatbot_handler(_, message: Message):
 
 __mod_name__ = "Cʜᴀᴛʙᴏᴛ"
 __help__ = """
-AI Chatbot for your group.
+AI Chatbot for your group with Cute Voice notes.
 
  ❍ /chatbot <on/off>*:* Toggle AI chatbot in group.
- ❍ /voice <on/off>*:* Toggle Voice Mode (Bot replies with audio notes).
+ ❍ /voice <on/off>*:* Toggle Cute Voice Mode (Bot replies with audio notes).
  ❍ Bot responds to triggers (hi, hello, etc.) or when replied to.
 """
